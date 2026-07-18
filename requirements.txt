@@ -1,0 +1,6 @@
+flet==0.84.0
+supabase
+fpdf2
+openpyxl
+Pillow
+matplotlib

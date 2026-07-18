@@ -1,0 +1,3 @@
+# core/config.py
+URL_NUBE = "https://ezytcmfzucflmdlfujvf.supabase.co/"
+KEY_NUBE = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6eXRjbWZ6dWNmbG1kbGZ1anZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NzkxOTEsImV4cCI6MjA5MjQ1NTE5MX0.V6mw3kLRgseU9m-V_iLeOCXhJrd33mN8O5Rf8lNk-Pk"
