@@ -577,15 +577,12 @@ class VistaInventario(ft.Container):
     # ══════════════════════════════ Exportar ══════════════════════════════
     def _exportar(self, modo: str):
         def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            import openpyxl
+            import openpyxl, io, base64 as _b64
             from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
             from datetime import datetime
 
             sb = get_sb()
 
-            # ── Estilos ──
             hdr_font  = Font(bold=True, color="FFFFFF", size=11)
             hdr_fill  = PatternFill("solid", fgColor="1565C0")
             hdr_align = Alignment(horizontal="center", vertical="center")
@@ -602,24 +599,6 @@ class VistaInventario(ft.Container):
                 for col in ws.columns:
                     max_w = max((len(str(c.value or "")) for c in col), default=10)
                     ws.column_dimensions[col[0].column_letter].width = min(max_w + 4, 50)
-
-            # ── Pedir ruta ──
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ts = datetime.now().strftime("%Y%m%d_%H%M")
-            nombre_default = {
-                "global":   f"Inventario_Global_{ts}.xlsx",
-                "bodega":   f"Inventario_Bodega_{ts}.xlsx",
-                "furgones": f"Inventario_Furgones_{ts}.xlsx",
-            }[modo]
-            ruta = filedialog.asksaveasfilename(
-                title="Guardar exportación",
-                defaultextension=".xlsx",
-                filetypes=[("Excel", "*.xlsx")],
-                initialfile=nombre_default,
-            )
-            root.destroy()
-            if not ruta:
-                return
 
             try:
                 wb = openpyxl.Workbook()
@@ -717,10 +696,12 @@ class VistaInventario(ft.Container):
                 if not wb.sheetnames:
                     wb.create_sheet("Sin datos")
 
-                wb.save(ruta)
-                nombre_archivo = ruta.replace("\\", "/").split("/")[-1]
+                _buf = io.BytesIO()
+                wb.save(_buf)
+                _b64str = _b64.b64encode(_buf.getvalue()).decode()
+                self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
                 from utils.ui_helpers import mostrar_snack
-                mostrar_snack(self.page_ref, f"Exportado: {nombre_archivo}", "success")
+                mostrar_snack(self.page_ref, "✅ Excel generado correctamente.", "success")
 
             except Exception as ex:
                 from utils.ui_helpers import mostrar_snack

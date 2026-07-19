@@ -696,18 +696,6 @@ class VistaFinanzas(ft.Container):
             return
 
         def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.asksaveasfilename(
-                title="Guardar reporte financiero",
-                defaultextension=".pdf",
-                filetypes=[("PDF", "*.pdf")],
-                initialfile=f"Finanzas_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-            )
-            root.destroy()
-            if not ruta:
-                return
             try:
                 from fpdf import FPDF
 
@@ -794,9 +782,11 @@ class VistaFinanzas(ft.Container):
                             pdf.cell(35, 6, f"${sm:,.0f}",         border=1, align="R")
                             pdf.ln()
 
-                pdf.output(ruta)
-                registrar_auditoria(estado.usuario_actual.get("nombre", ""), "EXPORTAR FINANZAS PDF", ruta)
-                self.mostrar_snack(f"✅ PDF exportado: {ruta.split('/')[-1].split(chr(92))[-1]}", "green700")
+                import base64 as _b64
+                _b64str = _b64.b64encode(pdf.output()).decode()
+                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                registrar_auditoria(estado.usuario_actual.get("nombre", ""), "EXPORTAR FINANZAS PDF", "web_download")
+                self.mostrar_snack("✅ PDF exportado correctamente.", "green700")
             except Exception as ex:
                 self.mostrar_snack(f"❌ Error al exportar: {ex}", "red")
         hilo(_run)

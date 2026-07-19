@@ -461,25 +461,22 @@ class VistaGestionFurgones(ft.Container):
     def descargar_plantilla_furgo(self, furgon_nombre):
         def _abrir(_=None):
             def _run():
-                import tkinter as tk; from tkinter import filedialog; import openpyxl
+                import openpyxl, io, base64 as _b64
                 from openpyxl.styles import Font, PatternFill, Side, Border; from openpyxl.utils import get_column_letter
-                root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-                ruta = filedialog.asksaveasfilename(title=f"Guardar plantilla {furgon_nombre}", defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")], initialfile=f"Plantilla_{furgon_nombre.replace(' ', '_')}.xlsx")
-                root.destroy()
-                if not ruta: return
                 try:
                     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Carga Stock"
                     headers = ["SKU", "Cantidad"]; fill = PatternFill("solid", fgColor="00796B"); font = Font(bold=True, color="FFFFFF"); b = Border(left=Side("thin"), right=Side("thin"), top=Side("thin"), bottom=Side("thin"))
                     for col, h in enumerate(headers, 1):
                         cell = ws.cell(row=1, column=col, value=h)
                         cell.fill = fill; cell.font = font; cell.border = b; ws.column_dimensions[get_column_letter(col)].width = 20
-                    # Formatear columna SKU como texto para preservar ceros iniciales
                     for row_num in range(2, 502):
                         ws.cell(row=row_num, column=1).number_format = '@'
-                    wb.save(ruta)
-                    self.mostrar_snack(f"✅ Plantilla guardada", "green700")
+                    _buf = io.BytesIO(); wb.save(_buf)
+                    _b64str = _b64.b64encode(_buf.getvalue()).decode()
+                    self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                    self.mostrar_snack(f"✅ Plantilla generada", "green700")
                 except Exception as ex:
-                    self.mostrar_snack(f"❌ Error al guardar: {ex}", "red700")
+                    self.mostrar_snack(f"❌ Error al generar: {ex}", "red700")
             hilo(_run)
         return _abrir
 
@@ -559,90 +556,76 @@ class VistaGestionFurgones(ft.Container):
 
     def importar_stock_furgo(self, furgon_id, furgon_nombre):
         def _abrir(_=None):
-            def _run():
-                # --- INICIO CORRECCIÓN TKINTER ---
-                import tkinter as tk; from tkinter import filedialog; import os
-                
-                root = tk.Tk()
-                root.withdraw() 
-                root.attributes("-topmost", True) 
-                
-                ruta = filedialog.askopenfilename(
-                    title=f"Importar stock {furgon_nombre}", 
-                    filetypes=[("Excel/CSV", "*.xlsx *.xls *.csv"), ("Todos", "*.*")]
-                )
-                
-                root.destroy()
-                # --- FIN CORRECCIÓN TKINTER ---
-                
-                if not ruta: return
-                try:
-                    ext = os.path.splitext(ruta)[1].lower(); filas = []
-                    if ext == ".csv":
-                        import csv
-                        with open(ruta, newline="", encoding="utf-8-sig") as fc:
-                            for row in csv.DictReader(fc): filas.append(dict(row))
-                    else:
-                        import openpyxl
-                        wb = openpyxl.load_workbook(ruta, data_only=True); ws = wb.active
-                        headers = [str(c.value).strip() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
-                        for row in ws.iter_rows(min_row=2, values_only=True):
-                            if any(v is not None for v in row): filas.append({headers[i]: (str(v).strip() if v is not None else "") for i, v in enumerate(row)})
+            def _on_result(e: ft.FilePickerResultEvent):
+                if not e.files or not e.files[0].path:
+                    return
+                ruta = e.files[0].path
+                def _run():
+                    try:
+                        import os as _os
+                        ext = _os.path.splitext(ruta)[1].lower(); filas = []
+                        if ext == ".csv":
+                            import csv
+                            with open(ruta, newline="", encoding="utf-8-sig") as fc:
+                                for row in csv.DictReader(fc): filas.append(dict(row))
+                        else:
+                            import openpyxl
+                            wb = openpyxl.load_workbook(ruta, data_only=True); ws = wb.active
+                            headers = [str(c.value).strip() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
+                            for row in ws.iter_rows(min_row=2, values_only=True):
+                                if any(v is not None for v in row): filas.append({headers[i]: (str(v).strip() if v is not None else "") for i, v in enumerate(row)})
 
-                    def buscar_col(row, opts):
-                        for op in opts:
-                            for k in row:
-                                if k and k.lower().strip() == op.lower(): return row[k]
-                        return ""
+                        def buscar_col(row, opts):
+                            for op in opts:
+                                for k in row:
+                                    if k and k.lower().strip() == op.lower(): return row[k]
+                            return ""
 
-                    ok = 0; err = 0; omitidos = 0
-                    
-                    for fila in filas:
-                        sku = buscar_col(fila, ["sku","código","codigo","cod"]); cant = buscar_col(fila, ["cantidad","stock","qty","cant"])
-                        if not sku: continue
-                        try:
-                            # Preservar ceros iniciales: si Excel leyó el SKU como número, convertir sin decimales
-                            if isinstance(sku, float):
-                                sku_limpio = str(int(sku)) if sku == int(sku) else str(sku)
-                            elif isinstance(sku, int):
-                                sku_limpio = str(sku)
-                            else:
-                                sku_limpio = str(sku).strip()
-                                if sku_limpio.endswith('.0'):
-                                    sku_limpio = sku_limpio[:-2]
-                            cantidad = int(float(str(cant).replace(",",".").strip())) if cant and str(cant).strip() else 0
-                        except ValueError:
-                            err += 1; continue
-                            
-                        try:
-                            res_prev = get_sb().table("furgon_productos").select("cantidad").eq("furgon_id", furgon_id).eq("sku", sku_limpio).execute()
-                            if res_prev.data:
-                                cant_prev = res_prev.data[0]["cantidad"] or 0
-                                get_sb().table("furgon_productos").update({"cantidad": cant_prev + cantidad}).eq("furgon_id", furgon_id).eq("sku", sku_limpio).execute()
-                            else:
-                                get_sb().table("furgon_productos").insert({"furgon_id": furgon_id, "sku": sku_limpio, "cantidad": cantidad}).execute()
-                            ok += 1
-                        except Exception:
-                            err += 1
+                        ok = 0; err = 0
+                        for fila in filas:
+                            sku = buscar_col(fila, ["sku","código","codigo","cod"]); cant = buscar_col(fila, ["cantidad","stock","qty","cant"])
+                            if not sku: continue
+                            try:
+                                if isinstance(sku, float):
+                                    sku_limpio = str(int(sku)) if sku == int(sku) else str(sku)
+                                elif isinstance(sku, int):
+                                    sku_limpio = str(sku)
+                                else:
+                                    sku_limpio = str(sku).strip()
+                                    if sku_limpio.endswith('.0'): sku_limpio = sku_limpio[:-2]
+                                cantidad = int(float(str(cant).replace(",",".").strip())) if cant and str(cant).strip() else 0
+                            except ValueError:
+                                err += 1; continue
+                            try:
+                                res_prev = get_sb().table("furgon_productos").select("cantidad").eq("furgon_id", furgon_id).eq("sku", sku_limpio).execute()
+                                if res_prev.data:
+                                    cant_prev = res_prev.data[0]["cantidad"] or 0
+                                    get_sb().table("furgon_productos").update({"cantidad": cant_prev + cantidad}).eq("furgon_id", furgon_id).eq("sku", sku_limpio).execute()
+                                else:
+                                    get_sb().table("furgon_productos").insert({"furgon_id": furgon_id, "sku": sku_limpio, "cantidad": cantidad}).execute()
+                                ok += 1
+                            except Exception:
+                                err += 1
 
-                    cache_invalidate("furgones_totales")
-                    registrar_auditoria(estado.usuario_actual["nombre"], "IMPORTAR FURGÓN", f"{furgon_nombre}: {ok} productos importados")
-                    self.txt_import_furgo.value = f"✅ {furgon_nombre}: {ok} actualizados" + (f" | ⚠️ {err} errores" if err else "")
-                    self.txt_import_furgo.color = "green700" if not err else "orange700"
-
-                    det_f = f"{ok} producto(s) importado(s)" + (f" · {err} errores" if err else "")
-                    
-                    if ok > 0: 
-                        self.mostrar_dialogo_importacion(True, "Stock de Furgón actualizado", f"Se ha cargado el stock correctamente a '{furgon_nombre}'.", det_f)
-                    else:
-                        self.mostrar_dialogo_importacion(False, "Sin actualizar", "El archivo no contenía productos válidos.", det_f)
-                        
-                    self.cargar_datos()
-                except Exception as ex:
-                    self.mostrar_dialogo_importacion(False, "Error crítico", "Hubo un error al leer el archivo.", str(ex))
-                    self.txt_import_furgo.value = f"❌ Error: {ex}"; self.txt_import_furgo.color = "red"
-                    if self.page_ref: self.txt_import_furgo.update()
-            hilo(_run)
+                        cache_invalidate("furgones_totales")
+                        registrar_auditoria(estado.usuario_actual["nombre"], "IMPORTAR FURGÓN", f"{furgon_nombre}: {ok} productos importados")
+                        self.txt_import_furgo.value = f"✅ {furgon_nombre}: {ok} actualizados" + (f" | ⚠️ {err} errores" if err else "")
+                        self.txt_import_furgo.color = "green700" if not err else "orange700"
+                        det_f = f"{ok} producto(s) importado(s)" + (f" · {err} errores" if err else "")
+                        if ok > 0:
+                            self.mostrar_dialogo_importacion(True, "Stock de Furgón actualizado", f"Se ha cargado el stock correctamente a '{furgon_nombre}'.", det_f)
+                        else:
+                            self.mostrar_dialogo_importacion(False, "Sin actualizar", "El archivo no contenía productos válidos.", det_f)
+                        self.cargar_datos()
+                    except Exception as ex:
+                        self.mostrar_dialogo_importacion(False, "Error crítico", "Hubo un error al leer el archivo.", str(ex))
+                        self.txt_import_furgo.value = f"❌ Error: {ex}"; self.txt_import_furgo.color = "red"
+                        if self.page_ref: self.txt_import_furgo.update()
+                hilo(_run)
+            picker = ft.FilePicker(on_result=_on_result)
+            self.page_ref.overlay.append(picker)
+            self.page_ref.update()
+            picker.pick_files(dialog_title=f"Importar stock {furgon_nombre}", allowed_extensions=["xlsx", "xls", "csv"], allow_multiple=False)
         return _abrir
 
     # ════════════════════════════════════════════════════════════════
@@ -841,13 +824,9 @@ class VistaGestionFurgones(ft.Container):
     def descargar_plantilla_herramientas(self, furgon_nombre):
         def _abrir(_=None):
             def _run():
-                import tkinter as tk; from tkinter import filedialog; import openpyxl
+                import openpyxl, io, base64 as _b64
                 from openpyxl.styles import Font, PatternFill, Side, Border
                 from openpyxl.utils import get_column_letter
-                root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-                ruta = filedialog.asksaveasfilename(title=f"Guardar plantilla herramientas {furgon_nombre}", defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")], initialfile=f"Plantilla_Herramientas_{furgon_nombre.replace(' ', '_')}.xlsx")
-                root.destroy()
-                if not ruta: return
                 try:
                     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Herramientas"
                     headers = ["furgon_nombre", "descripcion", "modelo", "stock", "valor_unitario", "fecha_entrega"]
@@ -857,131 +836,105 @@ class VistaGestionFurgones(ft.Container):
                         cell = ws.cell(row=1, column=col, value=h)
                         cell.fill = fill; cell.font = font; cell.border = b
                         ws.column_dimensions[get_column_letter(col)].width = 22
-                    wb.save(ruta)
-                    self.mostrar_snack("✅ Plantilla guardada", "green700")
+                    _buf = io.BytesIO(); wb.save(_buf)
+                    _b64str = _b64.b64encode(_buf.getvalue()).decode()
+                    self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                    self.mostrar_snack("✅ Plantilla generada", "green700")
                 except Exception as ex:
-                    self.mostrar_snack(f"❌ Error al guardar: {ex}", "red700")
+                    self.mostrar_snack(f"❌ Error al generar: {ex}", "red700")
             hilo(_run)
         return _abrir
 
     def hacer_importar_herramientas(self, fid, fname):
         def _abrir(_=None):
-            def _run():
-                import tkinter as tk; from tkinter import filedialog; import os
-                root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-                ruta = filedialog.askopenfilename(title=f"Importar herramientas {fname}", filetypes=[("Excel/CSV", "*.xlsx *.xls *.csv"), ("Todos", "*.*")])
-                root.destroy()
-                if not ruta: return
-                try:
-                    # 1. Carga de datos del archivo
-                    ext = os.path.splitext(ruta)[1].lower(); filas = []
-                    if ext == ".csv":
-                        import csv
-                        with open(ruta, newline="", encoding="utf-8-sig") as fc:
-                            for row in csv.DictReader(fc): filas.append(dict(row))
-                    else:
-                        import openpyxl
-                        wb = openpyxl.load_workbook(ruta, data_only=True); ws = wb.active
-                        headers = [str(c.value).strip().lower() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
-                        for row in ws.iter_rows(min_row=2, values_only=True):
-                            if any(v is not None for v in row):
-                                filas.append({headers[i]: (str(v).strip() if v is not None else "") for i, v in enumerate(row)})
-
-                    def buscar_col(row, opts):
-                        for op in opts:
-                            for k in row:
-                                if k and k.strip().lower() == op.lower(): return row[k]
-                        return ""
-
-                    # Descargar herramientas existentes en este furgón para mapear duplicados en memoria
-                    res_existentes = get_sb().table("herramientas_furgo").select("id, descripcion, modelo, stock, valor_unitario, fecha_entrega").eq("furgon_id", fid).execute()
-                    dict_existentes = {}
-                    for h in (res_existentes.data or []):
-                        desc_key = str(h["descripcion"]).strip().lower()
-                        mod_key = str(h["modelo"]).strip().lower() if h.get("modelo") else ""
-                        dict_existentes[(desc_key, mod_key)] = h
-
-                    # 2. Procesamiento de filas
-                    ok = 0; err = 0
-                    for fila in filas:
-                        desc = buscar_col(fila, ["descripcion", "descripción"])
-                        if not desc: err += 1; continue
-
-                        modelo = buscar_col(fila, ["modelo"])
-                        stock_raw = buscar_col(fila, ["stock", "cantidad"])
-                        valor_raw = buscar_col(fila, ["valor_unitario", "valor"])
-                        fecha_raw = buscar_col(fila, ["fecha_entrega", "fecha"])
-
-                        try:
-                            stock = int(float(str(stock_raw).replace(",", "."))) if stock_raw and str(stock_raw).strip() else 0
-                            valor = float(str(valor_raw).replace(",", ".")) if valor_raw and str(valor_raw).strip() else 0
-                            fecha_valida = None
-                            if fecha_raw:
-                                try: fecha_valida = datetime.date.fromisoformat(str(fecha_raw).strip()).isoformat()
-                                except: fecha_valida = None
-                        except: err += 1; continue
-
-                        desc_limpio = str(desc).strip()
-                        modelo_limpio = str(modelo).strip() if modelo else ""
-                        key = (desc_limpio.lower(), modelo_limpio.lower())
-
-                        if key in dict_existentes:
-                            # Herramienta repetida: se suma el stock nuevo al existente
-                            h_existente = dict_existentes[key]
-                            nuevo_stock = (h_existente.get("stock") or 0) + stock
-                            
-                            get_sb().table("herramientas_furgo").update({
-                                "stock": nuevo_stock,
-                                "valor_unitario": valor if valor > 0 else h_existente.get("valor_unitario", 0),
-                                "fecha_entrega": fecha_valida if fecha_valida else h_existente.get("fecha_entrega")
-                            }).eq("id", h_existente["id"]).execute()
-                            
-                            # Actualizar el diccionario local por si el mismo Excel tiene la herramienta otra vez
-                            dict_existentes[key]["stock"] = nuevo_stock
+            def _on_result(e: ft.FilePickerResultEvent):
+                if not e.files or not e.files[0].path:
+                    return
+                ruta = e.files[0].path
+                def _run():
+                    try:
+                        import os as _os
+                        ext = _os.path.splitext(ruta)[1].lower(); filas = []
+                        if ext == ".csv":
+                            import csv
+                            with open(ruta, newline="", encoding="utf-8-sig") as fc:
+                                for row in csv.DictReader(fc): filas.append(dict(row))
                         else:
-                            # Nueva herramienta: se inserta un registro limpio
-                            res_ins = get_sb().table("herramientas_furgo").insert({
-                                "furgon_id": fid,
-                                "descripcion": desc_limpio,
-                                "modelo": modelo_limpio if modelo_limpio else None,
-                                "stock": stock,
-                                "valor_unitario": valor,
-                                "fecha_entrega": fecha_valida,
-                            }).execute()
-                            
-                            if res_ins.data:
-                                dict_existentes[key] = res_ins.data[0]
-                        ok += 1
+                            import openpyxl
+                            wb = openpyxl.load_workbook(ruta, data_only=True); ws = wb.active
+                            headers = [str(c.value).strip().lower() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
+                            for row in ws.iter_rows(min_row=2, values_only=True):
+                                if any(v is not None for v in row):
+                                    filas.append({headers[i]: (str(v).strip() if v is not None else "") for i, v in enumerate(row)})
 
-                    # 3. Guardar logs y refrescar la pantalla
-                    registrar_auditoria(estado.usuario_actual["nombre"], "IMPORTAR HERRAMIENTAS", f"{fname}: {ok} herramientas procesadas")
-                    self.refrescar_herramientas(fid)
-                    
-                    if self.page_ref:
-                        self.mostrar_dialogo_importacion(ok > 0, "Proceso finalizado", f"Se procesaron {ok} herramientas correctamente.", f"{err} errores detectados.")
-                        
-                except Exception as ex:
-                    self.mostrar_dialogo_importacion(False, "Error crítico", "No se pudo mapear el archivo.", str(ex))
-            hilo(_run)
+                        def buscar_col(row, opts):
+                            for op in opts:
+                                for k in row:
+                                    if k and k.strip().lower() == op.lower(): return row[k]
+                            return ""
+
+                        res_existentes = get_sb().table("herramientas_furgo").select("id, descripcion, modelo, stock, valor_unitario, fecha_entrega").eq("furgon_id", fid).execute()
+                        dict_existentes = {}
+                        for h in (res_existentes.data or []):
+                            desc_key = str(h["descripcion"]).strip().lower()
+                            mod_key = str(h["modelo"]).strip().lower() if h.get("modelo") else ""
+                            dict_existentes[(desc_key, mod_key)] = h
+
+                        ok = 0; err = 0
+                        for fila in filas:
+                            desc = buscar_col(fila, ["descripcion", "descripción"])
+                            if not desc: err += 1; continue
+                            modelo = buscar_col(fila, ["modelo"])
+                            stock_raw = buscar_col(fila, ["stock", "cantidad"])
+                            valor_raw = buscar_col(fila, ["valor_unitario", "valor"])
+                            fecha_raw = buscar_col(fila, ["fecha_entrega", "fecha"])
+                            try:
+                                stock = int(float(str(stock_raw).replace(",", "."))) if stock_raw and str(stock_raw).strip() else 0
+                                valor = float(str(valor_raw).replace(",", ".")) if valor_raw and str(valor_raw).strip() else 0
+                                fecha_valida = None
+                                if fecha_raw:
+                                    try: fecha_valida = datetime.date.fromisoformat(str(fecha_raw).strip()).isoformat()
+                                    except: fecha_valida = None
+                            except: err += 1; continue
+                            desc_limpio = str(desc).strip()
+                            modelo_limpio = str(modelo).strip() if modelo else ""
+                            key = (desc_limpio.lower(), modelo_limpio.lower())
+                            if key in dict_existentes:
+                                h_existente = dict_existentes[key]
+                                nuevo_stock = (h_existente.get("stock") or 0) + stock
+                                get_sb().table("herramientas_furgo").update({
+                                    "stock": nuevo_stock,
+                                    "valor_unitario": valor if valor > 0 else h_existente.get("valor_unitario", 0),
+                                    "fecha_entrega": fecha_valida if fecha_valida else h_existente.get("fecha_entrega")
+                                }).eq("id", h_existente["id"]).execute()
+                                dict_existentes[key]["stock"] = nuevo_stock
+                            else:
+                                res_ins = get_sb().table("herramientas_furgo").insert({
+                                    "furgon_id": fid,
+                                    "descripcion": desc_limpio,
+                                    "modelo": modelo_limpio if modelo_limpio else None,
+                                    "stock": stock,
+                                    "valor_unitario": valor,
+                                    "fecha_entrega": fecha_valida,
+                                }).execute()
+                                if res_ins.data:
+                                    dict_existentes[key] = res_ins.data[0]
+                            ok += 1
+
+                        registrar_auditoria(estado.usuario_actual["nombre"], "IMPORTAR HERRAMIENTAS", f"{fname}: {ok} herramientas procesadas")
+                        self.refrescar_herramientas(fid)
+                        if self.page_ref:
+                            self.mostrar_dialogo_importacion(ok > 0, "Proceso finalizado", f"Se procesaron {ok} herramientas correctamente.", f"{err} errores detectados.")
+                    except Exception as ex:
+                        self.mostrar_dialogo_importacion(False, "Error crítico", "No se pudo mapear el archivo.", str(ex))
+                hilo(_run)
+            picker = ft.FilePicker(on_result=_on_result)
+            self.page_ref.overlay.append(picker)
+            self.page_ref.update()
+            picker.pick_files(dialog_title=f"Importar herramientas {fname}", allowed_extensions=["xlsx", "xls", "csv"], allow_multiple=False)
         return _abrir
-    
-    def exportar_pdf_furgones(self, e):
-        import tkinter as tk
-        from tkinter import filedialog
-        
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes("-topmost", True)
-        
-        ruta = filedialog.asksaveasfilename(
-            title="Guardar Inventario Furgones", 
-            defaultextension=".pdf", 
-            filetypes=[("Documento PDF", "*.pdf")]
-        )
-        root.destroy()
-        
-        if not ruta: return
 
+    def exportar_pdf_furgones(self, e):
         self.mostrar_snack("⏳ Generando reporte PDF, por favor espera...", "blue700")
 
         def _run_pdf_generation():
@@ -1024,32 +977,23 @@ class VistaGestionFurgones(ft.Container):
                             pdf.ln(8)
                     pdf.ln(5)
 
-                pdf.output(ruta)
-                self.mostrar_snack(f"✅ Reporte guardado con éxito.", "green700")
+                import base64 as _b64
+                _b64str = _b64.b64encode(pdf.output()).decode()
+                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                self.mostrar_snack(f"✅ Reporte generado con éxito.", "green700")
             except Exception as ex:
                 self.mostrar_snack(f"❌ Error al generar PDF: {ex}", "red700")
 
         hilo(_run_pdf_generation)
 
     def exportar_pdf_inventario_furgon(self, e):
+        self.mostrar_snack("⏳ Generando reporte PDF, por favor espera...", "blue700")
         def _run():
-            import tkinter as tk
-            from tkinter import filedialog
             try:
                 from fpdf import FPDF
             except ImportError:
                 self.mostrar_snack("❌ Falta la librería fpdf. Ejecuta en la terminal: pip install fpdf", "red700")
                 return
-
-            # 1. Abrir explorador de Windows para elegir dónde guardar
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.asksaveasfilename(title="Guardar Inventario Furgones", defaultextension=".pdf", filetypes=[("Documento PDF", "*.pdf")])
-            root.destroy()
-            
-            if not ruta: return
-
-            self.mostrar_snack("⏳ Generando reporte PDF, por favor espera...", "blue700")
-
             try:
                 # 2. Cargar diccionario de productos
                 res_prod = get_sb().table("productos").select("sku, nombre").execute()
@@ -1151,9 +1095,10 @@ class VistaGestionFurgones(ft.Container):
                                 pdf.cell(30, 8, cant, border=1, align="C")
                                 pdf.ln(8)
 
-                # 5. Escribir y guardar el archivo físico
-                pdf.output(ruta)
-                self.mostrar_snack(f"✅ Reporte guardado con éxito.", "green700")
+                import base64 as _b64
+                _b64str = _b64.b64encode(pdf.output()).decode()
+                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                self.mostrar_snack(f"✅ Reporte generado con éxito.", "green700")
 
             except Exception as ex:
                 self.mostrar_snack(f"❌ Error al generar PDF: {ex}", "red700")

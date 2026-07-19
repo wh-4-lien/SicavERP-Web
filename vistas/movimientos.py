@@ -17,6 +17,8 @@ class VistaMovimientos(ft.Container):
         self.expand = True
         self.datos_cargados = False
         self._cargando = False
+        self._picker_masivo = ft.FilePicker(on_result=self._on_masivo_result)
+        page.overlay.append(self._picker_masivo)
         self.construir_ui()
         self.content = self._main_content
 
@@ -363,23 +365,9 @@ class VistaMovimientos(ft.Container):
     # ── Traspaso Masivo ──────────────────────────────────────────────────────
     def masivo_descargar_plantilla(self, e):
         def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            import openpyxl
+            import openpyxl, io, base64 as _b64
             from openpyxl.styles import Font, PatternFill, Alignment
             from openpyxl.utils import get_column_letter
-
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.asksaveasfilename(
-                title="Guardar plantilla de traspaso masivo",
-                defaultextension=".xlsx",
-                filetypes=[("Excel", "*.xlsx")],
-                initialfile="Plantilla_Traspaso_Masivo.xlsx",
-            )
-            root.destroy()
-            if not ruta:
-                return
-
             try:
                 wb = openpyxl.Workbook()
                 ws = wb.active
@@ -390,12 +378,10 @@ class VistaMovimientos(ft.Container):
                 font_h = Font(bold=True, color="FFFFFF")
                 for col, h in enumerate(headers, 1):
                     c = ws.cell(row=1, column=col, value=h)
-                    c.fill = fill_h
-                    c.font = font_h
+                    c.fill = fill_h; c.font = font_h
                     c.alignment = Alignment(horizontal="center")
                     ws.column_dimensions[get_column_letter(col)].width = 22
 
-                # Fila de ejemplo
                 ws.cell(row=2, column=1, value="SKU001")
                 ws.cell(row=2, column=2, value=5)
                 ws.cell(row=2, column=3, value=1)
@@ -403,7 +389,6 @@ class VistaMovimientos(ft.Container):
                 for col in range(1, 5):
                     ws.cell(row=2, column=col).font = Font(italic=True, color="888888")
 
-                # Hoja de referencia de bodegas
                 ws_bod = wb.create_sheet("Bodegas (referencia)")
                 ws_bod.cell(row=1, column=1, value="ID").font = Font(bold=True)
                 ws_bod.cell(row=1, column=2, value="Nombre").font = Font(bold=True)
@@ -417,37 +402,37 @@ class VistaMovimientos(ft.Container):
                 except Exception:
                     pass
 
-                wb.save(ruta)
-                self.mostrar_snack(f"✅ Plantilla guardada en {ruta}", "teal700")
+                _buf = io.BytesIO(); wb.save(_buf)
+                _b64str = _b64.b64encode(_buf.getvalue()).decode()
+                self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                self.mostrar_snack("✅ Plantilla generada.", "teal700")
             except Exception as ex:
                 self.mostrar_snack(f"❌ Error al crear plantilla: {ex}", "red700")
         hilo(_run)
 
+    def _on_masivo_result(self, e: ft.FilePickerResultEvent):
+        import os
+        if e.files and e.files[0].path:
+            ruta = e.files[0].path
+            self._masivo_archivo_path[0] = ruta
+            self._masivo_txt_archivo.value = os.path.basename(ruta)
+            self._masivo_txt_archivo.color = "blue700"
+            self._masivo_btn_procesar.disabled = False
+        else:
+            self._masivo_archivo_path[0] = None
+            self._masivo_txt_archivo.value = "Ningún archivo seleccionado"
+            self._masivo_txt_archivo.color = "grey500"
+            self._masivo_btn_procesar.disabled = True
+        if self.page_ref:
+            self._masivo_txt_archivo.update()
+            self._masivo_btn_procesar.update()
+
     def masivo_seleccionar_archivo(self, e):
-        def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.askopenfilename(
-                title="Seleccionar planilla de traspaso masivo",
-                filetypes=[("Excel", "*.xlsx *.xls"), ("Todos", "*.*")],
-            )
-            root.destroy()
-            if ruta:
-                self._masivo_archivo_path[0] = ruta
-                import os
-                self._masivo_txt_archivo.value = os.path.basename(ruta)
-                self._masivo_txt_archivo.color = "blue700"
-                self._masivo_btn_procesar.disabled = False
-            else:
-                self._masivo_archivo_path[0] = None
-                self._masivo_txt_archivo.value = "Ningún archivo seleccionado"
-                self._masivo_txt_archivo.color = "grey500"
-                self._masivo_btn_procesar.disabled = True
-            if self.page_ref:
-                self._masivo_txt_archivo.update()
-                self._masivo_btn_procesar.update()
-        hilo(_run)
+        self._picker_masivo.pick_files(
+            dialog_title="Seleccionar planilla de traspaso masivo",
+            allowed_extensions=["xlsx", "xls"],
+            allow_multiple=False,
+        )
 
     def masivo_importar(self, e):
         ruta = self._masivo_archivo_path[0]

@@ -16,6 +16,8 @@ class VistaImportar(ft.Container):
         self.page_ref = page
         self.expand = True
         self.archivo_path = None
+        self._picker_abrir = ft.FilePicker(on_result=self._on_archivo_result)
+        page.overlay.append(self._picker_abrir)
         self.construir_ui()
 
     def mostrar_snack(self, mensaje, tipo_o_color="success"):
@@ -143,17 +145,9 @@ class VistaImportar(ft.Container):
                 self.mostrar_snack(f"❌ Error cargando bodegas: {e}", "error")
         hilo(_run)
 
-    # ── Selector de archivo via tkinter (compatible con Flet 0.85.x) ──
-    def abrir_selector(self, e):
-        def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.askopenfilename(
-                title="Seleccionar Excel de inventario",
-                filetypes=[("Excel", "*.xlsx *.xls"), ("Todos", "*.*")],
-            )
-            root.destroy()
+    def _on_archivo_result(self, e: ft.FilePickerResultEvent):
+        if e.files:
+            ruta = e.files[0].path
             if ruta:
                 self.archivo_path = ruta
                 self.txt_ruta.value = os.path.basename(ruta)
@@ -164,28 +158,27 @@ class VistaImportar(ft.Container):
                 self.btn_procesar.disabled = True
                 self.txt_ruta.value = "Ningún archivo seleccionado"
                 self.txt_ruta.color = "grey500"
-            if self.page_ref:
-                self.txt_ruta.update()
-                self.btn_procesar.update()
-        hilo(_run)
+        else:
+            self.archivo_path = None
+            self.btn_procesar.disabled = True
+            self.txt_ruta.value = "Ningún archivo seleccionado"
+            self.txt_ruta.color = "grey500"
+        if self.page_ref:
+            self.txt_ruta.update()
+            self.btn_procesar.update()
+
+    def abrir_selector(self, e):
+        self._picker_abrir.pick_files(
+            dialog_title="Seleccionar Excel de inventario",
+            allowed_extensions=["xlsx", "xls"],
+            allow_multiple=False,
+        )
 
     def descargar_plantilla(self, e):
         def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            import openpyxl
+            import openpyxl, io, base64 as _b64
             from openpyxl.styles import Font, PatternFill
             from openpyxl.utils import get_column_letter
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.asksaveasfilename(
-                title="Guardar plantilla",
-                defaultextension=".xlsx",
-                filetypes=[("Excel", "*.xlsx")],
-                initialfile="Plantilla_Inventario.xlsx",
-            )
-            root.destroy()
-            if not ruta:
-                return
             try:
                 wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Inventario"
                 headers = ["sku", "nombre", "familia", "subfamilia", "costo_neto", "precio_venta", "stock"]
@@ -195,10 +188,12 @@ class VistaImportar(ft.Container):
                     c = ws.cell(row=1, column=col, value=h)
                     c.fill = fill; c.font = font
                     ws.column_dimensions[get_column_letter(col)].width = 20
-                # Fila de ejemplo
                 ws.append(["SKU-001", "Producto de Ejemplo", "Mi Familia", "Mi Subfamilia", 1000, 1500, 50])
-                wb.save(ruta)
-                self.mostrar_snack("✅ Plantilla guardada", "success")
+                _buf = io.BytesIO()
+                wb.save(_buf)
+                _b64str = _b64.b64encode(_buf.getvalue()).decode()
+                self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                self.mostrar_snack("✅ Plantilla generada", "success")
             except Exception as ex:
                 self.mostrar_snack(f"❌ Error: {ex}", "error")
         hilo(_run)

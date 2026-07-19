@@ -484,21 +484,10 @@ class VistaAuditoria(ft.Container):
                             pdf.cell(w, 6, _safe(val,55), border=1, fill=True)
                         pdf.ln(); fill = not fill
 
-                import tkinter as tk
-                from tkinter import filedialog
-                nombre_sugerido = f"auditoria_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-                ruta = filedialog.asksaveasfilename(
-                    title="Guardar reporte de auditoria",
-                    initialfile=nombre_sugerido,
-                    defaultextension=".pdf",
-                    filetypes=[("PDF","*.pdf")],
-                )
-                root.destroy()
-                if ruta:
-                    pdf.output(ruta)
-                    import os; os.startfile(ruta)
-                    self.mostrar_snack("PDF guardado correctamente.", "green700")
+                import base64 as _b64
+                _b64str = _b64.b64encode(pdf.output()).decode()
+                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                self.mostrar_snack("PDF generado correctamente.", "green700")
             except Exception as ex:
                 import traceback; traceback.print_exc()
                 self.mostrar_snack(f"❌ Error al generar PDF: {ex}", "red")

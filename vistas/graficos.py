@@ -807,9 +807,7 @@ class VistaGraficos(ft.Container):
         datos  = self._filtrar_productos()
 
         def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            import tempfile
+            import base64 as _b64
             try: from fpdf import FPDF
             except ImportError:
                 self.mostrar_snack("Falta fpdf: pip install fpdf", "red"); return
@@ -820,14 +818,6 @@ class VistaGraficos(ft.Container):
                 self.progress.update()
                 self.txt_estado.update()
 
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.asksaveasfilename(title="Guardar PDF", defaultextension=".pdf",
-                filetypes=[("PDF","*.pdf")], initialfile=f"Grafico_{tipo}.pdf")
-            root.destroy()
-            if not ruta:
-                self.progress.visible = False
-                if self.page_ref: self.progress.update()
-                return
             try:
                 ruta_img = self._generar_png_temporal(tipo, titulo, datos)
                 pdf = FPDF(orientation="L", unit="mm", format="A4")
@@ -838,10 +828,11 @@ class VistaGraficos(ft.Container):
                     pdf.image(ruta_img, x=68, y=26, w=160)
                 else:
                     pdf.image(ruta_img, x=10, y=28, w=277)
-                pdf.output(ruta)
+                _b64str = _b64.b64encode(pdf.output()).decode()
+                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
                 os.unlink(ruta_img)
-                self.txt_estado.value = f"PDF guardado: {ruta.split(chr(92))[-1]}"
-                self.mostrar_snack("PDF guardado.", "green700")
+                self.txt_estado.value = "PDF generado."
+                self.mostrar_snack("PDF generado.", "green700")
             except Exception as ex:
                 self.mostrar_snack(f"Error PDF: {ex}", "red")
             self.progress.visible = False
@@ -855,15 +846,8 @@ class VistaGraficos(ft.Container):
             self.mostrar_snack("Sin datos para exportar.", "orange"); return
 
         def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            import openpyxl
+            import openpyxl, io, base64 as _b64
             from openpyxl.styles import Font, PatternFill
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.asksaveasfilename(title="Exportar Excel", defaultextension=".xlsx",
-                filetypes=[("Excel","*.xlsx")], initialfile="Datos_Graficos.xlsx")
-            root.destroy()
-            if not ruta: return
             try:
                 datos = self._filtrar_productos()
                 ver_costo = estado.puede_ver("costo")
@@ -886,8 +870,10 @@ class VistaGraficos(ft.Container):
                 for col in ws.columns:
                     ws.column_dimensions[col[0].column_letter].width = min(
                         max(len(str(c.value or "")) for c in col) + 4, 45)
-                wb.save(ruta)
-                self.mostrar_snack("Excel guardado.", "green700")
+                _buf = io.BytesIO(); wb.save(_buf)
+                _b64str = _b64.b64encode(_buf.getvalue()).decode()
+                self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                self.mostrar_snack("Excel generado.", "green700")
             except Exception as ex:
                 self.mostrar_snack(f"Error Excel: {ex}", "red")
         hilo(_run)
@@ -897,17 +883,10 @@ class VistaGraficos(ft.Container):
             self.mostrar_snack("Sin datos para el informe.", "orange"); return
 
         def _run():
-            import tkinter as tk
-            from tkinter import filedialog
+            import base64 as _b64
             try: from fpdf import FPDF
             except ImportError:
                 self.mostrar_snack("Falta fpdf: pip install fpdf", "red"); return
-
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.asksaveasfilename(title="Guardar Informe", defaultextension=".pdf",
-                filetypes=[("PDF","*.pdf")], initialfile="Informe_Completo.pdf")
-            root.destroy()
-            if not ruta: return
 
             try:
                 self.progress.visible = True
@@ -937,10 +916,11 @@ class VistaGraficos(ft.Container):
                     except Exception:
                         pass
 
-                pdf.output(ruta)
+                _b64str = _b64.b64encode(pdf.output()).decode()
+                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
                 self.progress.visible = False
                 self.txt_estado.value = f"Informe completo ({total} páginas) exportado."
-                self.mostrar_snack(f"Informe de {total} gráficos guardado.", "teal700")
+                self.mostrar_snack(f"Informe de {total} gráficos generado.", "teal700")
             except Exception as ex:
                 self.progress.visible = False
                 self.txt_estado.value = f"Error: {ex}"

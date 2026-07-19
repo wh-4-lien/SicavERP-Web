@@ -19,6 +19,9 @@ class VistaUsuarios(ft.Container):
         self.expand = True
         self.foto_seleccionada = {"valor": "person.png"}
         self.foto_editando     = {"valor": "person.png"}
+        self._picker_foto = ft.FilePicker(on_result=self._on_foto_result)
+        self._picker_foto_edit = ft.FilePicker(on_result=self._on_foto_edit_result)
+        page.overlay.extend([self._picker_foto, self._picker_foto_edit])
         self.construir_ui()
 
     def mostrar_snack(self, mensaje, tipo_o_color="success"):
@@ -253,17 +256,17 @@ class VistaUsuarios(ft.Container):
             except RuntimeError:
                 pass
 
+    def _on_foto_result(self, e: ft.FilePickerResultEvent):
+        if e.files and e.files[0].path:
+            self.procesar_foto(e.files[0].path)
+
     # ── Foto creación ───────────────────────────────────────────────────────
     def abrir_selector_foto(self, e):
-        def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.askopenfilename(title="Seleccionar foto de perfil", filetypes=_IMG_TYPES)
-            root.destroy()
-            if ruta:
-                self.procesar_foto(ruta)
-        hilo(_run)
+        self._picker_foto.pick_files(
+            dialog_title="Seleccionar foto de perfil",
+            allowed_extensions=["png", "jpg", "jpeg", "webp", "bmp", "gif"],
+            allow_multiple=False,
+        )
 
     def procesar_foto(self, ruta):
         try:
@@ -280,17 +283,17 @@ class VistaUsuarios(ft.Container):
         except Exception as ex:
             self.mostrar_snack(f"❌ Error al subir foto: {ex}", "error")
 
+    def _on_foto_edit_result(self, e: ft.FilePickerResultEvent):
+        if e.files and e.files[0].path:
+            self.procesar_foto_edicion(e.files[0].path)
+
     # ── Foto edición ────────────────────────────────────────────────────────
     def abrir_selector_foto_edicion(self, e):
-        def _run():
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
-            ruta = filedialog.askopenfilename(title="Seleccionar nueva foto", filetypes=_IMG_TYPES)
-            root.destroy()
-            if ruta:
-                self.procesar_foto_edicion(ruta)
-        hilo(_run)
+        self._picker_foto_edit.pick_files(
+            dialog_title="Seleccionar nueva foto",
+            allowed_extensions=["png", "jpg", "jpeg", "webp", "bmp", "gif"],
+            allow_multiple=False,
+        )
 
     def procesar_foto_edicion(self, ruta):
         try:
