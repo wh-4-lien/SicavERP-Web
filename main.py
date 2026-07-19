@@ -544,12 +544,13 @@ def main(page: ft.Page):
     iniciar_login()
 
 if __name__ == "__main__":
-    import sys as _sys
-    if hasattr(_sys, "_MEIPASS"):
-        _assets = os.path.join(_sys._MEIPASS, "assets")
-        _flet_client = os.path.join(_sys._MEIPASS, "flet_client")
-        if os.path.exists(_flet_client):
-            os.environ["FLET_VIEW_PATH"] = _flet_client
-    else:
-        _assets = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
-    ft.app(target=main, assets_dir=_assets)
+    import sys as _sys, os as _os
+    _assets = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "assets")
+    _port = int(_os.environ.get("PORT", 8080))
+    ft.app(
+        target=main,
+        assets_dir=_assets,
+        view=ft.AppView.WEB_BROWSER,
+        port=_port,
+        host="0.0.0.0",
+    )

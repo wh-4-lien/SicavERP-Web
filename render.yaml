@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: sicaverp
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: PORT
+        value: 8080
+    plan: free
