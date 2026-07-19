@@ -472,8 +472,10 @@ class VistaGestionFurgones(ft.Container):
                     for row_num in range(2, 502):
                         ws.cell(row=row_num, column=1).number_format = '@'
                     _buf = io.BytesIO(); wb.save(_buf)
-                    _b64str = _b64.b64encode(_buf.getvalue()).decode()
-                    self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                    import subprocess as _sp, datetime as _dt
+                    _fname = f"/tmp/PlantillaCargaStock_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    open(_fname, 'wb').write(_buf.getvalue())
+                    _sp.Popen(['open', _fname])
                     self.mostrar_snack(f"✅ Plantilla generada", "green700")
                 except Exception as ex:
                     self.mostrar_snack(f"❌ Error al generar: {ex}", "red700")
@@ -837,8 +839,10 @@ class VistaGestionFurgones(ft.Container):
                         cell.fill = fill; cell.font = font; cell.border = b
                         ws.column_dimensions[get_column_letter(col)].width = 22
                     _buf = io.BytesIO(); wb.save(_buf)
-                    _b64str = _b64.b64encode(_buf.getvalue()).decode()
-                    self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                    import subprocess as _sp, datetime as _dt
+                    _fname = f"/tmp/PlantillaHerramientas_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    open(_fname, 'wb').write(_buf.getvalue())
+                    _sp.Popen(['open', _fname])
                     self.mostrar_snack("✅ Plantilla generada", "green700")
                 except Exception as ex:
                     self.mostrar_snack(f"❌ Error al generar: {ex}", "red700")
@@ -977,9 +981,10 @@ class VistaGestionFurgones(ft.Container):
                             pdf.ln(8)
                     pdf.ln(5)
 
-                import base64 as _b64
-                _b64str = _b64.b64encode(pdf.output()).decode()
-                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                import subprocess as _sp, datetime as _dt
+                _fname = f"/tmp/ReporteHerramientas_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                open(_fname, 'wb').write(pdf.output())
+                _sp.Popen(['open', _fname])
                 self.mostrar_snack(f"✅ Reporte generado con éxito.", "green700")
             except Exception as ex:
                 self.mostrar_snack(f"❌ Error al generar PDF: {ex}", "red700")
@@ -1095,9 +1100,10 @@ class VistaGestionFurgones(ft.Container):
                                 pdf.cell(30, 8, cant, border=1, align="C")
                                 pdf.ln(8)
 
-                import base64 as _b64
-                _b64str = _b64.b64encode(pdf.output()).decode()
-                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                import subprocess as _sp, datetime as _dt
+                _fname = f"/tmp/InventarioFurgon_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                open(_fname, 'wb').write(pdf.output())
+                _sp.Popen(['open', _fname])
                 self.mostrar_snack(f"✅ Reporte generado con éxito.", "green700")
 
             except Exception as ex:

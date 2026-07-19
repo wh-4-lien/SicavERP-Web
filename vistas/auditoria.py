@@ -484,9 +484,10 @@ class VistaAuditoria(ft.Container):
                             pdf.cell(w, 6, _safe(val,55), border=1, fill=True)
                         pdf.ln(); fill = not fill
 
-                import base64 as _b64
-                _b64str = _b64.b64encode(pdf.output()).decode()
-                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                import subprocess as _sp, datetime as _dt
+                _fname = f"/tmp/Auditoria_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                open(_fname, 'wb').write(pdf.output())
+                _sp.Popen(['open', _fname])
                 self.mostrar_snack("PDF generado correctamente.", "green700")
             except Exception as ex:
                 import traceback; traceback.print_exc()

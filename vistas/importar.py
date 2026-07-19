@@ -191,8 +191,10 @@ class VistaImportar(ft.Container):
                 ws.append(["SKU-001", "Producto de Ejemplo", "Mi Familia", "Mi Subfamilia", 1000, 1500, 50])
                 _buf = io.BytesIO()
                 wb.save(_buf)
-                _b64str = _b64.b64encode(_buf.getvalue()).decode()
-                self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                import subprocess as _sp, datetime as _dt
+                _fname = f"/tmp/PlantillaProductos_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                open(_fname, 'wb').write(_buf.getvalue())
+                _sp.Popen(['open', _fname])
                 self.mostrar_snack("✅ Plantilla generada", "success")
             except Exception as ex:
                 self.mostrar_snack(f"❌ Error: {ex}", "error")

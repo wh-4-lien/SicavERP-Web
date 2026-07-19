@@ -782,10 +782,11 @@ class VistaFinanzas(ft.Container):
                             pdf.cell(35, 6, f"${sm:,.0f}",         border=1, align="R")
                             pdf.ln()
 
-                import base64 as _b64
-                _b64str = _b64.b64encode(pdf.output()).decode()
-                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
-                registrar_auditoria(estado.usuario_actual.get("nombre", ""), "EXPORTAR FINANZAS PDF", "web_download")
+                import subprocess as _sp, datetime as _dt
+                _fname = f"/tmp/Finanzas_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                open(_fname, 'wb').write(pdf.output())
+                _sp.Popen(['open', _fname])
+                registrar_auditoria(estado.usuario_actual.get("nombre", ""), "EXPORTAR FINANZAS PDF", _fname)
                 self.mostrar_snack("✅ PDF exportado correctamente.", "green700")
             except Exception as ex:
                 self.mostrar_snack(f"❌ Error al exportar: {ex}", "red")

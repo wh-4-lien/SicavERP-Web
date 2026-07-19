@@ -828,8 +828,10 @@ class VistaGraficos(ft.Container):
                     pdf.image(ruta_img, x=68, y=26, w=160)
                 else:
                     pdf.image(ruta_img, x=10, y=28, w=277)
-                _b64str = _b64.b64encode(pdf.output()).decode()
-                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                import subprocess as _sp, datetime as _dt
+                _fname = f"/tmp/Grafico_{tipo}_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                open(_fname, 'wb').write(pdf.output())
+                _sp.Popen(['open', _fname])
                 os.unlink(ruta_img)
                 self.txt_estado.value = "PDF generado."
                 self.mostrar_snack("PDF generado.", "green700")
@@ -871,8 +873,10 @@ class VistaGraficos(ft.Container):
                     ws.column_dimensions[col[0].column_letter].width = min(
                         max(len(str(c.value or "")) for c in col) + 4, 45)
                 _buf = io.BytesIO(); wb.save(_buf)
-                _b64str = _b64.b64encode(_buf.getvalue()).decode()
-                self.page_ref.launch_url(f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{_b64str}")
+                import subprocess as _sp, datetime as _dt
+                _fname = f"/tmp/Grafico_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                open(_fname, 'wb').write(_buf.getvalue())
+                _sp.Popen(['open', _fname])
                 self.mostrar_snack("Excel generado.", "green700")
             except Exception as ex:
                 self.mostrar_snack(f"Error Excel: {ex}", "red")
@@ -916,8 +920,10 @@ class VistaGraficos(ft.Container):
                     except Exception:
                         pass
 
-                _b64str = _b64.b64encode(pdf.output()).decode()
-                self.page_ref.launch_url(f"data:application/pdf;base64,{_b64str}")
+                import subprocess as _sp, datetime as _dt
+                _fname = f"/tmp/InformeCompleto_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                open(_fname, 'wb').write(pdf.output())
+                _sp.Popen(['open', _fname])
                 self.progress.visible = False
                 self.txt_estado.value = f"Informe completo ({total} páginas) exportado."
                 self.mostrar_snack(f"Informe de {total} gráficos generado.", "teal700")

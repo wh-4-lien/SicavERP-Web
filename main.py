@@ -546,11 +546,23 @@ def main(page: ft.Page):
 if __name__ == "__main__":
     import sys as _sys, os as _os
     _assets = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "assets")
-    _port = int(_os.environ.get("PORT", 8080))
-    ft.app(
-        target=main,
-        assets_dir=_assets,
-        view=ft.AppView.WEB_BROWSER,
-        port=_port,
-        host="0.0.0.0",
-    )
+
+    # Detectar si el GPU soporta Metal (Sandy Bridge / Intel HD 3000 no tiene Metal)
+    _use_web = False
+    try:
+        import ctypes as _ctypes
+        _metal = _ctypes.cdll.LoadLibrary("/System/Library/Frameworks/Metal.framework/Metal")
+        _metal.MTLCreateSystemDefaultDevice.restype = _ctypes.c_void_p
+        if not _metal.MTLCreateSystemDefaultDevice():
+            _use_web = True
+    except Exception:
+        pass  # No es macOS o no hay Metal framework → modo desktop
+
+    if _use_web:
+        import webbrowser as _wb
+        _firefox = "/Applications/Firefox.app/Contents/MacOS/firefox"
+        if _os.path.exists(_firefox):
+            _wb.register("firefox", None, _wb.BackgroundBrowser(_firefox), preferred=True)
+        ft.app(target=main, assets_dir=_assets, view=ft.AppView.WEB_BROWSER, port=8080)
+    else:
+        ft.app(target=main, assets_dir=_assets)
