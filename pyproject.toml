@@ -1,0 +1,9 @@
+[tool.flet]
+org = "com.sicav"
+
+[tool.flet.app]
+name = "SicavERP"
+exclude = ["build", ".git", ".claude", "__pycache__", "*.pyc", "render.yaml", "pyproject.toml"]
+
+[tool.flet.macos]
+minimum_version = "10.15"
