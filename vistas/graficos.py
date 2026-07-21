@@ -12,7 +12,7 @@ import numpy as np
 
 from core.database import get_sb, fetch_all, fetch_furgones_con_totales
 from core.estado import estado
-from core.utilidades import hilo, registrar_auditoria
+from core.utilidades import hilo, registrar_auditoria, clp
 
 _ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
 os.makedirs(_ASSETS_DIR, exist_ok=True)
@@ -248,7 +248,8 @@ class VistaGraficos(ft.Container):
     # ══════════════════════════════ Carga de datos ══════════════════════════════
     def inicializar(self):
         from core.cache import app_cache
-        if getattr(self, '_datos_cargados', False):
+        cache_valido = app_cache.gra_ready.is_set()
+        if getattr(self, '_datos_cargados', False) and cache_valido:
             if self.page_ref:
                 try:
                     self.dd_familia.update()
@@ -256,10 +257,11 @@ class VistaGraficos(ft.Container):
                     self.dd_furgon.update()
                 except Exception: pass
             return
-        # Si el cache ya está listo, poblar directamente
-        if app_cache.gra_ready.is_set():
+        if not getattr(self, '_datos_cargados', False) and cache_valido:
             self._poblar_desde_cache(app_cache, llamar_update=True)
             return
+        # Cache invalidado: recargar
+        self._datos_cargados = False
 
         def _run():
             try:

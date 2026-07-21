@@ -128,6 +128,8 @@ class VistaGestionFurgones(ft.Container):
             print(f"[GESTION_FURGONES] combos pre-cargados ({len(usuarios)} técnicos)")
 
     def inicializar(self):
+        if getattr(self, '_datos_cargados', False):
+            return
         self.cargar_datos()
 
     def cargar_datos(self):
@@ -228,6 +230,7 @@ class VistaGestionFurgones(ft.Container):
 
                 self.col_lista_furgones.controls = nuevos_controles_lista
                 self.cont_lista.visible = es_admin
+                self._datos_cargados = True
 
                 if self.page_ref:
                     self.col_lista_furgones.update()
@@ -832,12 +835,18 @@ class VistaGestionFurgones(ft.Container):
                 try:
                     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Herramientas"
                     headers = ["furgon_nombre", "descripcion", "modelo", "stock", "valor_unitario", "fecha_entrega"]
+                    hints_h = ["Nombre del furgón", "Descripción de la herramienta", "Modelo o código", "Cantidad entera", "Valor en pesos CLP (entero, sin $). Ej: 15000", "Fecha AAAA-MM-DD"]
                     fill = PatternFill("solid", fgColor="6A1B9A"); font = Font(bold=True, color="FFFFFF")
                     b = Border(left=Side("thin"), right=Side("thin"), top=Side("thin"), bottom=Side("thin"))
-                    for col, h in enumerate(headers, 1):
+                    from openpyxl.comments import Comment
+                    for col, (h, hint) in enumerate(zip(headers, hints_h), 1):
                         cell = ws.cell(row=1, column=col, value=h)
                         cell.fill = fill; cell.font = font; cell.border = b
                         ws.column_dimensions[get_column_letter(col)].width = 22
+                        comment = Comment(hint, "SICAV ERP"); comment.width = 220; comment.height = 50
+                        cell.comment = comment
+                    for row_num in range(2, 502):
+                        ws.cell(row=row_num, column=5).number_format = "#,##0"
                     _buf = io.BytesIO(); wb.save(_buf)
                     import subprocess as _sp, datetime as _dt
                     _fname = f"/tmp/PlantillaHerramientas_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"

@@ -6,7 +6,7 @@ from core.database import (
     registrar_despacho_tecnico, registrar_despacho_desde_furgon,
 )
 from core.estado import estado
-from core.utilidades import hilo, registrar_auditoria
+from core.utilidades import hilo, registrar_auditoria, clp
 from core.widgets import BuscadorProducto
 
 
@@ -424,7 +424,7 @@ class VistaMiFurgon(ft.Container):
                     ft.DataCell(ft.Text(d["sku"], weight="bold", color="blue900" if not es_herramienta else "orange900", size=13)),
                     ft.DataCell(ft.Text(d["nombre"], size=13, color="grey800")),
                     ft.DataCell(lbl_cant),
-                    ft.DataCell(ft.Text(f"${d.get('valor_unitario', 0):,.0f}", size=13, color="grey800")),
+                    ft.DataCell(ft.Text(clp(d.get('valor_unitario', 0)), size=13, color="grey800")),
                 ]
 
                 if es_herramienta:
@@ -432,18 +432,18 @@ class VistaMiFurgon(ft.Container):
                     
                 celdas.extend([
                     ft.DataCell(ft.Text(d["fecha_entrega"], size=13, color="grey700")),
-                    ft.DataCell(ft.Text(f"${d['valor_total']:,.0f}", size=13, color="grey800", weight="bold")),
+                    ft.DataCell(ft.Text(clp(d['valor_total']), size=13, color="grey800", weight="bold")),
                 ])
                 filas.append(ft.DataRow(cells=celdas))
             return filas, total_valor_visible
 
         filas_rep, total_rep = _crear_filas(datos_rep, busq_rep, es_herramienta=False)
         self.tabla_repuestos.rows = filas_rep
-        self.txt_total_valor_repuestos.value = f"Suma Total: ${total_rep:,.0f}"
+        self.txt_total_valor_repuestos.value = f"Suma Total: {clp(total_rep)}"
 
         filas_her, total_her = _crear_filas(self.datos_herramientas, busq_her, es_herramienta=True)
         self.tabla_herramientas.rows = filas_her
-        self.txt_total_valor_herramientas.value = f"Suma Total: ${total_her:,.0f}"
+        self.txt_total_valor_herramientas.value = f"Suma Total: {clp(total_her)}"
 
         if self.page_ref:
             try:

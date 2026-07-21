@@ -1,26 +1,54 @@
 # vistas/login.py
 import flet as ft
 import os
+import json
 import asyncio
 import hashlib
 from core.database import supabase
 from core.estado import estado
-from core.utilidades import obtener_ruta_imagen, registrar_auditoria, hilo
+from core.utilidades import obtener_ruta_imagen, registrar_auditoria, hilo, DIRECTORIO_BASE
 from version import VERSION
+
+_PREFS_PATH = os.path.join(DIRECTORIO_BASE, "user_prefs.json")
+
+def _cargar_prefs() -> dict:
+    try:
+        with open(_PREFS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _guardar_prefs(prefs: dict):
+    try:
+        with open(_PREFS_PATH, "w", encoding="utf-8") as f:
+            json.dump(prefs, f)
+    except Exception:
+        pass
 
 class VistaLogin(ft.Container):
     def __init__(self, page: ft.Page, on_login_success):
         super().__init__()
-        self.main_page = page  
+        self.main_page = page
         self.on_login_success = on_login_success
         self.expand = True
         self.construir_ui()
 
     def construir_ui(self):
-        self.in_user = ft.TextField(label="Usuario", width=300, prefix_icon=ft.Icons.PERSON)
-        self.in_pass = ft.TextField(label="Contraseña", width=300, password=True, can_reveal_password=True, prefix_icon=ft.Icons.LOCK)
+        prefs = _cargar_prefs()
+        usuario_guardado = prefs.get("usuario", "")
+        recordar = bool(usuario_guardado)
+
+        self.in_user = ft.TextField(label="Usuario", width=300, prefix_icon=ft.Icons.PERSON, value=usuario_guardado,
+            on_submit=lambda _: self.in_pass.focus(),
+        )
+        self.in_pass = ft.TextField(
+            label="Contraseña", width=300, password=True, can_reveal_password=True,
+            prefix_icon=ft.Icons.LOCK,
+            on_submit=self.intentar_login,
+        )
+        self.chk_recordar = ft.Checkbox(label="Recordar usuario", value=recordar)
         self.txt_error = ft.Text("", color="red", weight="bold")
-        
+
         ruta_logo = obtener_ruta_imagen("sicav.png")
         control_logo = ft.Image(src="sicav.png", width=150, height=150) if os.path.exists(ruta_logo) else ft.Icon(ft.Icons.SECURITY, size=80, color="blue900")
 
@@ -32,6 +60,7 @@ class VistaLogin(ft.Container):
                 ft.Divider(height=20, color="transparent"),
                 self.in_user,
                 self.in_pass,
+                ft.Container(self.chk_recordar, width=300),
                 self.txt_error,
                 ft.Divider(height=10, color="transparent"),
                 ft.ElevatedButton("INGRESAR AL SISTEMA", icon=ft.Icons.LOGIN, on_click=self.intentar_login, width=300, height=50),
@@ -48,6 +77,7 @@ class VistaLogin(ft.Container):
         usuario  = self.in_user.value
         pwd_raw  = self.in_pass.value
         pwd_hash = hashlib.sha256(pwd_raw.encode()).hexdigest()
+        recordar = self.chk_recordar.value
         def _run():
             try:
                 # Intenta con contraseña hasheada primero
@@ -58,6 +88,7 @@ class VistaLogin(ft.Container):
                     if res.data:
                         supabase.table("usuarios").update({"password": pwd_hash}).eq("usuario", usuario).execute()
                 if res.data:
+                    _guardar_prefs({"usuario": usuario} if recordar else {})
                     user_db = res.data[0]
                     nombre_rol = user_db.get("roles", {}).get("nombre", "Sin Rol") if user_db.get("roles") else "Sin Rol"
                     estado.usuario_actual["rol"]    = nombre_rol

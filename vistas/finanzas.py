@@ -2,7 +2,7 @@
 import flet as ft
 from core.database import get_sb, fetch_productos
 from core.estado import estado
-from core.utilidades import hilo, registrar_auditoria
+from core.utilidades import hilo, registrar_auditoria, clp
 from datetime import datetime
 
 # ── helpers de schema nuevo ──────────────────────────────────────────
@@ -23,11 +23,11 @@ def tarjeta_resumen(titulo, val_costo, val_venta, icono, color):
             ft.Divider(height=6, color="transparent"),
             ft.Row([
                 ft.Column([ft.Text("Costo", size=10, color="grey500"),
-                           ft.Text(f"${val_costo:,.0f}", size=15, weight="bold", color="blue900")]),
+                           ft.Text(clp(val_costo), size=15, weight="bold", color="blue900")]),
                 ft.Column([ft.Text("Venta", size=10, color="grey500"),
-                           ft.Text(f"${val_venta:,.0f}", size=15, weight="bold", color="green800")]),
+                           ft.Text(clp(val_venta), size=15, weight="bold", color="green800")]),
                 ft.Column([ft.Text("Margen", size=10, color="grey500"),
-                           ft.Text(f"${val_venta - val_costo:,.0f}", size=15, weight="bold",
+                           ft.Text(clp(val_venta - val_costo), size=15, weight="bold",
                                    color="green700" if val_venta >= val_costo else "red700")]),
             ], spacing=20),
         ], spacing=3),
@@ -42,7 +42,7 @@ def tarjeta_movimiento(titulo, valor, subtitulo, icono, color):
         content=ft.Column([
             ft.Row([ft.Icon(icono, color=color, size=20),
                     ft.Text(titulo, weight="bold", size=12, color="grey800", expand=True)]),
-            ft.Text(f"${valor:,.0f}", size=18, weight="black", color="grey900"),
+            ft.Text(clp(valor), size=18, weight="black", color="grey900"),
             ft.Text(subtitulo, size=10, color="grey500", italic=True),
         ], spacing=3),
         padding=14, bgcolor="white", border_radius=12,
@@ -67,11 +67,11 @@ def fila_sub(sub, costo, venta):
         content=ft.Row([
             ft.Icon(ft.Icons.SUBDIRECTORY_ARROW_RIGHT, color="grey400", size=14),
             ft.Text(sub, size=11, color="grey700", expand=True),
-            ft.Text(f"${costo:,.0f}",  size=11, color="blue800", weight="bold"),
+            ft.Text(clp(costo),  size=11, color="blue800", weight="bold"),
             ft.Container(width=16),
-            ft.Text(f"${venta:,.0f}",  size=11, color="green700", weight="bold"),
+            ft.Text(clp(venta),  size=11, color="green700", weight="bold"),
             ft.Container(width=16),
-            ft.Text(f"${venta-costo:,.0f}", size=11,
+            ft.Text(clp(venta-costo), size=11,
                     color="green700" if venta >= costo else "red700", weight="bold"),
         ]),
         padding=ft.Padding(12, 5, 12, 5),
@@ -225,8 +225,12 @@ class VistaFinanzas(ft.Container):
         self._cargando = False
 
     def inicializar(self):
-        if self.datos_cargados or self._cargando:
+        from core.cache import app_cache
+        if self._cargando:
             return
+        if self.datos_cargados and app_cache.fin_ready.is_set():
+            return
+        self.datos_cargados = False
         self._cargando = True
         hilo(self._cargar_desde_cache)
 
@@ -323,11 +327,11 @@ class VistaFinanzas(ft.Container):
                 content=ft.Row([
                     ft.Icon(ft.Icons.FOLDER, color=color, size=18),
                     ft.Text(fam, weight="bold", size=13, color="grey900", expand=True),
-                    ft.Text(f"Costo: ${d['costo']:,.0f}", size=11, color="blue800", weight="bold"),
+                    ft.Text(f"Costo: {clp(d['costo'])}", size=11, color="blue800", weight="bold"),
                     ft.Container(width=12),
-                    ft.Text(f"Venta: ${d['venta']:,.0f}", size=11, color="green700", weight="bold"),
+                    ft.Text(f"Venta: {clp(d['venta'])}", size=11, color="green700", weight="bold"),
                     ft.Container(width=12),
-                    ft.Text(f"Margen: ${d['venta']-d['costo']:,.0f}", size=11,
+                    ft.Text(f"Margen: {clp(d['venta']-d['costo'])}", size=11,
                             color="green700" if d['venta'] >= d['costo'] else "red700", weight="bold"),
                 ]),
                 padding=ft.Padding(14, 10, 14, 10),
@@ -386,11 +390,11 @@ class VistaFinanzas(ft.Container):
                 content=ft.Row([
                     ft.Icon(ft.Icons.LOCATION_ON, color=color, size=16),
                     ft.Text(area, weight="bold", size=13, color="grey900", expand=True),
-                    ft.Text(f"Costo: ${total_c:,.0f}", size=11, color="blue800", weight="bold"),
+                    ft.Text(f"Costo: {clp(total_c)}", size=11, color="blue800", weight="bold"),
                     ft.Container(width=12),
-                    ft.Text(f"Venta: ${total_v:,.0f}", size=11, color="green700", weight="bold"),
+                    ft.Text(f"Venta: {clp(total_v)}", size=11, color="green700", weight="bold"),
                     ft.Container(width=12),
-                    ft.Text(f"Margen: ${total_v - total_c:,.0f}", size=11,
+                    ft.Text(f"Margen: {clp(total_v - total_c)}", size=11,
                             color="green700" if total_v >= total_c else "red700", weight="bold"),
                 ]),
                 padding=ft.Padding(14, 10, 14, 10),
@@ -404,11 +408,11 @@ class VistaFinanzas(ft.Container):
                     content=ft.Row([
                         ft.Icon(ft.Icons.WAREHOUSE, color="grey400", size=14),
                         ft.Text(bod_n, size=11, color="grey700", expand=True),
-                        ft.Text(f"${d['costo']:,.0f}", size=11, color="blue800", weight="bold"),
+                        ft.Text(clp(d['costo']), size=11, color="blue800", weight="bold"),
                         ft.Container(width=16),
-                        ft.Text(f"${d['venta']:,.0f}", size=11, color="green700", weight="bold"),
+                        ft.Text(clp(d['venta']), size=11, color="green700", weight="bold"),
                         ft.Container(width=16),
-                        ft.Text(f"${d['venta'] - d['costo']:,.0f}", size=11,
+                        ft.Text(clp(d['venta'] - d['costo']), size=11,
                                 color="green700" if d["venta"] >= d["costo"] else "red700", weight="bold"),
                     ]),
                     padding=ft.Padding(12, 5, 12, 5),
@@ -732,7 +736,7 @@ class VistaFinanzas(ft.Container):
                     pdf.set_font("Arial", "", 10)
                     for label, key in [("Despachos", "DESPACHO_TECNICO"),
                                        ("Carga Furgones", "CARGA_FURGON"), ("Traspasos Internos", "TRASPASO_INTERNO")]:
-                        pdf.cell(0, 6, txt(f"  {label}: ${k.get(key,0):,.0f}"), ln=True)
+                        pdf.cell(0, 6, txt(f"  {label}: {clp(k.get(key,0))}"), ln=True)
                     pdf.cell(0, 6, txt(f"  Total operaciones: {k.get('total_unidades',0):,} uds"), ln=True)
                     pdf.ln(4)
 
@@ -765,9 +769,9 @@ class VistaFinanzas(ft.Container):
                     pdf.set_fill_color(230, 240, 255)
                     pdf.set_font("Arial", "B", 9)
                     pdf.cell(80, 7, txt(fam[:40]), border=1, fill=True)
-                    pdf.cell(35, 7, f"${d['costo']:,.0f}", border=1, fill=True, align="R")
-                    pdf.cell(35, 7, f"${d['venta']:,.0f}", border=1, fill=True, align="R")
-                    pdf.cell(35, 7, f"${margen:,.0f}",    border=1, fill=True, align="R")
+                    pdf.cell(35, 7, clp(d['costo']), border=1, fill=True, align="R")
+                    pdf.cell(35, 7, clp(d['venta']), border=1, fill=True, align="R")
+                    pdf.cell(35, 7, clp(margen),     border=1, fill=True, align="R")
                     pdf.ln()
 
                     pdf.set_font("Arial", "", 8)
@@ -777,9 +781,9 @@ class VistaFinanzas(ft.Container):
                                 pdf.add_page(); encabezado()
                             sm = sd["venta"] - sd["costo"]
                             pdf.cell(80, 6, txt(f"   ↳ {sub[:37]}"), border=1)
-                            pdf.cell(35, 6, f"${sd['costo']:,.0f}", border=1, align="R")
-                            pdf.cell(35, 6, f"${sd['venta']:,.0f}", border=1, align="R")
-                            pdf.cell(35, 6, f"${sm:,.0f}",         border=1, align="R")
+                            pdf.cell(35, 6, clp(sd['costo']), border=1, align="R")
+                            pdf.cell(35, 6, clp(sd['venta']), border=1, align="R")
+                            pdf.cell(35, 6, clp(sm),          border=1, align="R")
                             pdf.ln()
 
                 import subprocess as _sp, datetime as _dt

@@ -402,6 +402,10 @@ class VistaMovimientos(ft.Container):
                 except Exception:
                     pass
 
+                # Formato texto en columna SKU para evitar conversión a float
+                for row_num in range(2, 502):
+                    ws.cell(row=row_num, column=1).number_format = "@"
+
                 _buf = io.BytesIO(); wb.save(_buf)
                 import subprocess as _sp, datetime as _dt
                 _fname = f"/tmp/PlantillaTraspasos_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"

@@ -4,7 +4,7 @@ import datetime
 from collections import Counter
 from core.database import get_sb, fetch_productos
 from core.estado import estado
-from core.utilidades import hilo
+from core.utilidades import hilo, clp
 
 # --- Componentes Visuales ---
 def kpi_card(titulo, valor, subtitulo, icono, color):
@@ -132,8 +132,8 @@ class VistaDashboard(ft.Container):
         kpis = [kpi_card("Productos", total_prods, f"{len(sin_stock)} sin stock", ft.Icons.INVENTORY_2, "blue700")]
         if ver_costo:
             kpis += [
-                kpi_card("Valor Costo", f"${val_costo:,.0f}", f"Venta: ${val_venta:,.0f}", ft.Icons.ACCOUNT_BALANCE_WALLET, "teal700"),
-                kpi_card("Margen", f"${margen_total:,.0f}", f"{(margen_total/val_venta*100) if val_venta else 0:.1f}% venta", ft.Icons.TRENDING_UP, "green700"),
+                kpi_card("Valor Costo", clp(val_costo), f"Venta: {clp(val_venta)}", ft.Icons.ACCOUNT_BALANCE_WALLET, "teal700"),
+                kpi_card("Margen", clp(margen_total), f"{(margen_total/val_venta*100) if val_venta else 0:.1f}% venta", ft.Icons.TRENDING_UP, "green700"),
             ]
         kpis.append(kpi_card("Alertas", len(sin_stock)+len(bajo_stock)+len(sin_precio), "Ver detalles", ft.Icons.WARNING_AMBER, "orange700"))
         self.col_kpis.controls = kpis
@@ -163,7 +163,7 @@ class VistaDashboard(ft.Container):
         if ver_costo:
             top_margen = sorted([p for p in prods if (p.get("precio_venta") or 0) > 0], key=lambda p: ((p.get("precio_venta") or 0)-(p.get("costo_neto") or 0)), reverse=True)[:10]
             self.col_margen.controls = [fila_tabla([("SKU",2),("Nombre",5),("Margen $",3)], header=True)] + \
-                [fila_tabla([(p.get("sku",""),2),(p.get("nombre","")[:20],5),(f"${((p.get('precio_venta') or 0)-(p.get('costo_neto') or 0)):,.0f}",3)]) for p in top_margen]
+                [fila_tabla([(p.get("sku",""),2),(p.get("nombre","")[:20],5),(clp((p.get('precio_venta') or 0)-(p.get('costo_neto') or 0)),3)]) for p in top_margen]
             sin_datos = [p for p in prods if not (p.get("precio_venta") or 0) or not (p.get("costo_neto") or 0)][:15]
             if sin_datos:
                 self.col_sin_precio.controls = [fila_tabla([("SKU",2),("Nombre",5),("Problema",4)], header=True)] + [

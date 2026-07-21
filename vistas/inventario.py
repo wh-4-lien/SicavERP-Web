@@ -2,7 +2,7 @@
 import flet as ft
 from core.database import get_sb, fetch_all
 from core.estado import estado
-from core.utilidades import hilo
+from core.utilidades import hilo, clp
 
 
 def _label_bodega(b: dict) -> str:
@@ -490,10 +490,10 @@ class VistaInventario(ft.Container):
                 ft.DataCell(ft.Text(p["nombre"], size=12)),
                 ft.DataCell(ft.Text(bod_lbl, size=11, color="indigo700")),
                 ft.DataCell(badge_stock(stk)),
-                ft.DataCell(ft.Text(f"${p['precio_venta']:,.0f}", size=12, color="grey800")),
+                ft.DataCell(ft.Text(clp(p['precio_venta']), size=12, color="grey800")),
             ]
             if estado.puede_ver("costo"):
-                celdas.append(ft.DataCell(ft.Text(f"${p['costo_neto']:,.0f}", size=12, color="red700")))
+                celdas.append(ft.DataCell(ft.Text(clp(p['costo_neto']), size=12, color="red700")))
             nuevas_filas.append(ft.DataRow(cells=celdas))
 
         self.tabla.rows = nuevas_filas
@@ -600,6 +600,15 @@ class VistaInventario(ft.Container):
                     max_w = max((len(str(c.value or "")) for c in col), default=10)
                     ws.column_dimensions[col[0].column_letter].width = min(max_w + 4, 50)
 
+            def aplicar_formatos_clp(ws, cols_precio: list):
+                for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=1):
+                    for cell in row:
+                        cell.number_format = "@"
+                for col_idx in cols_precio:
+                    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=col_idx, max_col=col_idx):
+                        for cell in row:
+                            cell.number_format = "#,##0"
+
             try:
                 wb = openpyxl.Workbook()
                 wb.remove(wb.active)  # quitar hoja por defecto
@@ -626,6 +635,7 @@ class VistaInventario(ft.Container):
                             fila += [costo, (p.get("precio_venta", 0) or 0) - (costo or 0)]
                         ws.append(fila)
                     autoajustar(ws)
+                    aplicar_formatos_clp(ws, [6, 7, 8] if ver_costo else [6])
 
                 # ════════════ BODEGA ════════════
                 elif modo == "bodega":
@@ -662,6 +672,7 @@ class VistaInventario(ft.Container):
                                 fila += [costo, cant * costo]
                             ws.append(fila)
                         autoajustar(ws)
+                        aplicar_formatos_clp(ws, [6, 7, 8] if ver_costo else [6])
 
                 # ════════════ FURGONES ════════════
                 elif modo == "furgones":
@@ -692,6 +703,7 @@ class VistaInventario(ft.Container):
                                 fila += [costo, cant * costo]
                             ws.append(fila)
                         autoajustar(ws)
+                        aplicar_formatos_clp(ws, [6, 7, 8] if ver_costo else [6])
 
                 if not wb.sheetnames:
                     wb.create_sheet("Sin datos")

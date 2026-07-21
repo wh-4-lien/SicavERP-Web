@@ -62,6 +62,7 @@ class VistaComercial(ft.Container):
         )
 
         self.sel_bodega_ajuste      = ft.Dropdown(label="Bodega Asignada", width=180, height=55, options=[])
+        self.sel_bodega_ajuste.on_change = self._on_bodega_ajuste_cambiada
         self.in_cant_ajuste         = ft.TextField(label="Cantidad", value="1", width=100, height=55, text_align="center")
         self.dd_tipo_ajuste         = ft.Dropdown(label="Tipo de Trabajo", width=220, height=55, options=[])
         self.in_comentario_ajuste   = ft.TextField(
@@ -208,29 +209,47 @@ class VistaComercial(ft.Container):
     def inicializar(self):
         def _run():
             try:
+                from core.cache import app_cache
                 sb = get_sb()
+
                 if not getattr(self, '_familias_listas', False):
-                    res_f = sb.table("familias").select("nombre").order("nombre").execute()
-                    fams = [f["nombre"] for f in (res_f.data or [])]
+                    if app_cache.cat_ready.is_set() and app_cache.cat_familias:
+                        fams = app_cache.cat_familias
+                    else:
+                        res_f = sb.table("familias").select("nombre").order("nombre").execute()
+                        fams = [f["nombre"] for f in (res_f.data or [])]
                     self.in_fam.options = [ft.dropdown.Option(f) for f in fams]
                     self.in_fam.value = None
                     if self.page_ref: self.in_fam.update()
-                res_a = sb.table("areas").select("id, nombre").order("nombre").execute()
-                areas = res_a.data or []
-                self.in_bodega_area.options = (
-                    [ft.dropdown.Option("", "— Sin Área —")] +
-                    [ft.dropdown.Option(key=str(a["id"]), text=a["nombre"]) for a in areas]
-                )
-                self.in_bodega_area.value = ""
-                if self.page_ref: self.in_bodega_area.update()
+                    self._familias_listas = True
+
+                if not getattr(self, '_areas_listas', False):
+                    if app_cache.cat_ready.is_set() and app_cache.cat_areas:
+                        areas = app_cache.cat_areas
+                    else:
+                        res_a = sb.table("areas").select("id, nombre").order("nombre").execute()
+                        areas = res_a.data or []
+                    self.in_bodega_area.options = (
+                        [ft.dropdown.Option("", "— Sin Área —")] +
+                        [ft.dropdown.Option(key=str(a["id"]), text=a["nombre"]) for a in areas]
+                    )
+                    self.in_bodega_area.value = ""
+                    if self.page_ref: self.in_bodega_area.update()
+                    self._areas_listas = True
+
                 if not self.dd_tipo_ajuste.options:
-                    from core.database import fetch_tipos_trabajo
-                    tipos = fetch_tipos_trabajo()
+                    if app_cache.cat_ready.is_set() and app_cache.cat_tipos:
+                        tipos = app_cache.cat_tipos
+                    else:
+                        from core.database import fetch_tipos_trabajo
+                        tipos = fetch_tipos_trabajo()
                     self.dd_tipo_ajuste.options = [
                         ft.dropdown.Option(key=str(t["id"]), text=t["nombre"]) for t in tipos
                     ]
                     if self.page_ref: self.dd_tipo_ajuste.update()
-                self.cargar_bodegas()
+
+                if not getattr(self, '_bodegas_listas_com', False):
+                    self.cargar_bodegas()
             except Exception as ex:
                 print(f"[ERROR INICIALIZAR COMERCIAL] {ex}")
         hilo(_run)
@@ -284,6 +303,7 @@ class VistaComercial(ft.Container):
                         content=ft.Text("No hay bodegas registradas.", italic=True, color="grey500"), padding=20))
 
                 self.col_lista_bodegas.controls = filas
+                self._bodegas_listas_com = True
                 if self.page_ref:
                     self.sel_bodega_ajuste.update()
                     self.page_ref.update()
@@ -505,23 +525,54 @@ class VistaComercial(ft.Container):
         sku = prod["sku"]
         def _run():
             try:
-                res_b = get_sb().table("bodega_productos").select("bodegas(nombre), cantidad").eq("sku", sku).execute()
+                res_b = get_sb().table("bodega_productos").select("bodega_id, bodegas(nombre), cantidad").eq("sku", sku).execute()
                 partes = []
+                mejor_bid = None
+                mejor_cant = -1
                 for b_rec in (res_b.data or []):
                     nom_b  = (b_rec.get("bodegas") or {}).get("nombre", "Bodega")
                     cant_b = b_rec.get("cantidad") or 0
+                    bid    = str(b_rec.get("bodega_id", ""))
                     partes.append(f"{nom_b}: {cant_b}")
+                    if cant_b > mejor_cant:
+                        mejor_cant = cant_b
+                        mejor_bid  = bid
                 info = " | ".join(partes) if partes else "Sin stock en bodegas"
                 self.txt_info_ajuste.value  = f"📦 {prod['nombre']}  |  {info}"
                 self.txt_info_ajuste.color  = "blue900"
                 self.cont_info_ajuste.bgcolor = "blue50"
                 self.cont_info_ajuste.border  = ft.Border(left=ft.BorderSide(3, "blue400"))
                 self.cont_info_ajuste.visible = True
+                ops_keys = {o.key for o in (self.sel_bodega_ajuste.options or [])}
+                if mejor_bid and mejor_bid in ops_keys:
+                    self.sel_bodega_ajuste.value = mejor_bid
+                    self.sel_bodega_ajuste.update()
                 if self.page_ref:
                     self.txt_info_ajuste.update()
                     self.cont_info_ajuste.update()
             except Exception as ex:
                 print(f"[CALLBACK AJUSTE] {ex}")
+        hilo(_run)
+
+    def _on_bodega_ajuste_cambiada(self, e):
+        sku = self.buscador_ajuste.value.strip() if self.buscador_ajuste.value else ""
+        if not sku or not self.sel_bodega_ajuste.value:
+            return
+        b_id = int(self.sel_bodega_ajuste.value)
+        def _run():
+            try:
+                res = get_sb().table("bodega_productos").select("bodegas(nombre), cantidad") \
+                              .eq("sku", sku).eq("bodega_id", b_id).execute()
+                rec = (res.data or [{}])[0] if res.data else {}
+                nom_b = (rec.get("bodegas") or {}).get("nombre", "Bodega")
+                cant  = rec.get("cantidad") or 0
+                self.txt_info_ajuste.value = f"📦 {sku}  |  {nom_b}: {cant}"
+                self.cont_info_ajuste.visible = True
+                if self.page_ref:
+                    self.txt_info_ajuste.update()
+                    self.cont_info_ajuste.update()
+            except Exception as ex:
+                print(f"[BODEGA CAMBIADA] {ex}")
         hilo(_run)
 
     def ajuste_stock(self, delta):

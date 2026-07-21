@@ -9,6 +9,13 @@ from core.database import get_sb
 DIRECTORIO_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARPETA_ASSETS = os.path.join(DIRECTORIO_BASE, "assets")
 
+def clp(valor) -> str:
+    """Formatea un valor como peso chileno: $1.500.000"""
+    try:
+        return "$" + f"{int(round(float(valor))):,}".replace(",", ".")
+    except Exception:
+        return "$0"
+
 def obtener_ruta_imagen(nombre_archivo):
     if not nombre_archivo: return ""
     nombre_limpio = nombre_archivo.replace("assets/", "").replace("assets\\", "")

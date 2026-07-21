@@ -176,19 +176,90 @@ class VistaImportar(ft.Container):
 
     def descargar_plantilla(self, e):
         def _run():
-            import openpyxl, io, base64 as _b64
-            from openpyxl.styles import Font, PatternFill
+            import openpyxl, io
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
             from openpyxl.utils import get_column_letter
+            from openpyxl.comments import Comment
             try:
-                wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Inventario"
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Inventario"
+                ws.freeze_panes = "A2"
+
                 headers = ["sku", "nombre", "familia", "subfamilia", "costo_neto", "precio_venta", "stock"]
-                fill = PatternFill("solid", fgColor="1565C0")
-                font = Font(bold=True, color="FFFFFF")
-                for col, h in enumerate(headers, 1):
-                    c = ws.cell(row=1, column=col, value=h)
-                    c.fill = fill; c.font = font
-                    ws.column_dimensions[get_column_letter(col)].width = 20
-                ws.append(["SKU-001", "Producto de Ejemplo", "Mi Familia", "Mi Subfamilia", 1000, 1500, 50])
+                hints   = [
+                    "TEXTO obligatorio. Ej: 1234 o ABC-01. No usar decimales.",
+                    "Nombre del producto (obligatorio)",
+                    "Familia (se crea si no existe). Dejar en blanco = Sin Familia",
+                    "Subfamilia (opcional, debe pertenecer a la familia)",
+                    "Costo neto en pesos chilenos (CLP), entero. Ej: 1500",
+                    "Precio de venta en pesos chilenos (CLP), entero. Ej: 2000",
+                    "Stock inicial entero. Ej: 10",
+                ]
+                fill_hdr  = PatternFill("solid", fgColor="1565C0")
+                fill_req  = PatternFill("solid", fgColor="E3F2FD")
+                font_hdr  = Font(bold=True, color="FFFFFF", size=11)
+                font_data = Font(size=11)
+                border    = Border(
+                    left=Side(style="thin", color="BDBDBD"), right=Side(style="thin", color="BDBDBD"),
+                    top=Side(style="thin", color="BDBDBD"),  bottom=Side(style="thin", color="BDBDBD"),
+                )
+                align_c = Alignment(horizontal="center", vertical="center")
+                align_l = Alignment(horizontal="left",   vertical="center")
+                col_widths = [18, 36, 20, 20, 16, 16, 10]
+
+                for col, (h, hint, w) in enumerate(zip(headers, hints, col_widths), 1):
+                    cell = ws.cell(row=1, column=col, value=h)
+                    cell.fill = fill_hdr; cell.font = font_hdr; cell.border = border; cell.alignment = align_c
+                    ws.column_dimensions[get_column_letter(col)].width = w
+                    comment = Comment(hint, "SICAV ERP"); comment.width = 260; comment.height = 60
+                    cell.comment = comment
+                ws.row_dimensions[1].height = 22
+
+                ejemplos = [
+                    ["1001",    "Válvula de bola 1/2\"", "Válvulas",    "Bola",   2500, 3800, 5],
+                    ["1002",    "Filtro de agua 3/4\"",  "Filtros",     "Agua",   1800, 2700, 12],
+                    ["TOOL-01", "Llave inglesa 12\"",    "Herramientas","Llaves", 4500, 6900, 3],
+                ]
+                for r_idx, row_data in enumerate(ejemplos, 2):
+                    for c_idx, val in enumerate(row_data, 1):
+                        cell = ws.cell(row=r_idx, column=c_idx, value=val)
+                        cell.font = font_data; cell.border = border
+                        cell.alignment = align_c if c_idx != 2 else align_l
+                        if c_idx <= 2:
+                            cell.fill = fill_req
+
+                for row in ws.iter_rows(min_row=2, max_row=1000, min_col=1, max_col=1):
+                    for cell in row: cell.number_format = "@"
+                for row in ws.iter_rows(min_row=2, max_row=1000, min_col=5, max_col=6):
+                    for cell in row: cell.number_format = "#,##0"
+                for row in ws.iter_rows(min_row=2, max_row=1000, min_col=7, max_col=7):
+                    for cell in row: cell.number_format = "#,##0"
+
+                ws2 = wb.create_sheet("Instrucciones")
+                instrucciones = [
+                    ("INSTRUCCIONES DE USO", True),
+                    ("", False),
+                    ("1. La columna 'sku' es OBLIGATORIA y debe ser texto (no número decimal).", False),
+                    ("   Si el SKU es numérico (ej: 1234), escribirlo sin decimales.", False),
+                    ("", False),
+                    ("2. La columna 'nombre' es OBLIGATORIA.", False),
+                    ("", False),
+                    ("3. 'familia' y 'subfamilia' son opcionales. Si la familia no existe, se creará.", False),
+                    ("", False),
+                    ("4. 'costo_neto' y 'precio_venta' son valores en pesos CLP (sin $). Ej: 1500", False),
+                    ("", False),
+                    ("5. 'stock' debe ser número entero. Ej: 10", False),
+                    ("", False),
+                    ("6. No modificar los nombres de las columnas (fila 1).", False),
+                    ("7. Puedes agregar más filas desde la fila 2 en adelante.", False),
+                    ("8. Filas completamente vacías son ignoradas.", False),
+                ]
+                ws2.column_dimensions["A"].width = 80
+                for i, (txt, bold) in enumerate(instrucciones, 1):
+                    c = ws2.cell(row=i, column=1, value=txt)
+                    c.font = Font(bold=bold, size=11 if not bold else 13, color="1565C0" if bold else "000000")
+
                 _buf = io.BytesIO()
                 wb.save(_buf)
                 import subprocess as _sp, datetime as _dt
@@ -256,7 +327,11 @@ class VistaImportar(ft.Container):
                 for row in ws.iter_rows(min_row=2, values_only=True):
                     if all(v is None for v in row):
                         continue
-                    fila = {headers[i]: (str(v).strip() if v is not None else "") for i, v in enumerate(row) if i < len(headers)}
+                    def _str(v):
+                        if isinstance(v, float) and v.is_integer():
+                            return str(int(v))
+                        return str(v).strip() if v is not None else ""
+                    fila = {headers[i]: _str(v) for i, v in enumerate(row) if i < len(headers)}
 
                     def get_col(*opts):
                         for op in opts:
