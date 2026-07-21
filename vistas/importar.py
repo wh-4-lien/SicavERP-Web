@@ -347,6 +347,8 @@ class VistaImportar(ft.Container):
                 self.log("", "transparent")
                 self.log(f"🏁 Finalizado: {ok} importados · {err} con error · {omitidos} filas vacías", "yellow")
                 self.mostrar_snack(f"✅ {ok} productos importados a la bodega", "success")
+                from core.cache import app_cache
+                app_cache.inv_ready.clear()
 
             except Exception as ex:
                 self.log(f"❌ Error crítico: {ex}", "red")
