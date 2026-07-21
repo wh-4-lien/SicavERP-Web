@@ -399,9 +399,13 @@ class VistaInventario(ft.Container):
                     rows = fetch_all("bodega_productos", "sku, cantidad", bodega_id=bodega_id)
                     stock_map = {r["sku"]: r["cantidad"] for r in rows}
 
-                # Recargar productos base si el árbol o búsqueda lo requiere
+                # Recargar productos base si faltan SKUs (ej: importación reciente)
                 if not self._productos_base:
                     self._cargar_productos_base(sb)
+                elif stock_map:
+                    prods_skus = {p["sku"] for p in self._productos_base}
+                    if any(sku not in prods_skus for sku in stock_map):
+                        self._cargar_productos_base(sb)
 
                 # Filtrar
                 prods = self._productos_base
