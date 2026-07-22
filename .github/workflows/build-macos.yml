@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-13   # Runner Intel — compatible con iMac 2012/2015
+    runs-on: macos-14   # Runner Apple Silicon — requiere macOS 14+ para Flutter 3.41+
     timeout-minutes: 40
 
     steps:
