@@ -48,13 +48,9 @@ jobs:
           PIP_PREFER_BINARY: "1"
           MACOSX_DEPLOYMENT_TARGET: "14.0"
 
-      - name: Find build output
-        run: find . -name "*.app" -type d 2>/dev/null || echo "No .app found"; ls -la build/ 2>/dev/null || echo "No build dir"
-
       - name: Create DMG
         run: |
-          APP_PATH=$(find . -name "SicavERP.app" -type d | head -1)
-          echo "App found at: $APP_PATH"
+          APP_PATH="build/macos/SicavERP-Web.app"
           DMG_NAME="SicavERP-macOS-${{ github.ref_name || 'dev' }}.dmg"
 
           # Carpeta temporal para armar el contenido del DMG
