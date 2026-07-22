@@ -45,6 +45,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PIP_PREFER_BINARY: "1"
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
 
       - name: Create DMG
         run: |
