@@ -30,6 +30,13 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install build dependencies
+        run: |
+          brew install libffi openssl@3
+          echo "PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$(brew --prefix libffi)/lib -L$(brew --prefix openssl@3)/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$(brew --prefix libffi)/include -I$(brew --prefix openssl@3)/include" >> $GITHUB_ENV
+
       - name: Install Python dependencies
         run: pip install flet==0.84.0 flet-web==0.84.0 supabase fpdf2 openpyxl Pillow matplotlib
 
