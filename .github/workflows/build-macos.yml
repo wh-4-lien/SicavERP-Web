@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-macos:
     runs-on: macos-14   # Runner Apple Silicon — requiere macOS 14+ para Flutter 3.41+
