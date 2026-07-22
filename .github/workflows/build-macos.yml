@@ -50,7 +50,8 @@ jobs:
 
       - name: Create DMG
         run: |
-          APP_PATH="build/macos/Build/Products/Release/SicavERP.app"
+          APP_PATH=$(find build -name "SicavERP.app" -type d | head -1)
+          echo "App found at: $APP_PATH"
           DMG_NAME="SicavERP-macOS-${{ github.ref_name || 'dev' }}.dmg"
 
           # Carpeta temporal para armar el contenido del DMG
