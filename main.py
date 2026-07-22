@@ -548,26 +548,5 @@ if __name__ == "__main__":
     _assets = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "assets")
     _port = int(_os.environ.get("PORT", 8080))
 
-    # Servidor Linux (Render.com) → siempre modo web
-    if _sys.platform.startswith("linux") or _os.environ.get("RENDER"):
-        ft.app(target=main, assets_dir=_assets, view=ft.AppView.WEB_BROWSER, port=_port)
-    else:
-        # macOS local: detectar soporte Metal (Intel HD 3000 / Sandy Bridge no tiene Metal)
-        _use_web = False
-        try:
-            import ctypes as _ctypes
-            _metal = _ctypes.cdll.LoadLibrary("/System/Library/Frameworks/Metal.framework/Metal")
-            _metal.MTLCreateSystemDefaultDevice.restype = _ctypes.c_void_p
-            if not _metal.MTLCreateSystemDefaultDevice():
-                _use_web = True
-        except Exception:
-            pass  # No es macOS o no hay Metal framework → modo desktop
-
-        if _use_web:
-            import webbrowser as _wb
-            _firefox = "/Applications/Firefox.app/Contents/MacOS/firefox"
-            if _os.path.exists(_firefox):
-                _wb.register("firefox", None, _wb.BackgroundBrowser(_firefox), preferred=True)
-            ft.app(target=main, assets_dir=_assets, view=ft.AppView.WEB_BROWSER, port=8080)
-        else:
-            ft.app(target=main, assets_dir=_assets)
+    # Siempre abrir en navegador (Chrome/Firefox)
+    ft.app(target=main, assets_dir=_assets, view=ft.AppView.WEB_BROWSER, port=_port)

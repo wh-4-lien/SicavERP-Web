@@ -7,3 +7,4 @@ exclude = ["build", ".git", ".claude", "__pycache__", "*.pyc", "render.yaml", "p
 
 [tool.flet.macos]
 minimum_version = "10.15"
+icon = "assets/sicav.png"
