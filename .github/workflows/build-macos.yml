@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-macos:
-    runs-on: macos-14   # Runner Apple Silicon — requiere macOS 14+ para Flutter 3.41+
+    runs-on: macos-13   # Runner Intel x86_64 — compatible con todos los Macs del equipo
     timeout-minutes: 40
 
     steps:
@@ -22,13 +22,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.41.4'
-          channel: stable
-          cache: true
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -41,26 +34,25 @@ jobs:
           echo "CPPFLAGS=-I$(brew --prefix libffi)/include -I$(brew --prefix openssl@3)/include" >> $GITHUB_ENV
 
       - name: Install Python dependencies
-        run: pip install flet==0.84.0 flet-web==0.84.0 supabase fpdf2 openpyxl Pillow matplotlib
+        run: pip install flet==0.84.0 flet-cli==0.84.0 supabase fpdf2 openpyxl Pillow matplotlib pyinstaller
 
-      - name: Build macOS app
-        run: flet build macos --verbose
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          PIP_PREFER_BINARY: "1"
-          MACOSX_DEPLOYMENT_TARGET: "14.0"
+      - name: Pack macOS app
+        run: |
+          flet pack main.py \
+            --name SicavERP \
+            --icon assets/sicav.png \
+            --add-data "assets:assets" \
+            --add-data "vistas:vistas" \
+            --add-data "core:core" \
+            --add-data "utils:utils"
 
       - name: Create DMG
         run: |
-          APP_PATH="build/macos/SicavERP-Web.app"
+          APP_PATH="dist/SicavERP.app"
           DMG_NAME="SicavERP-macOS-${{ github.ref_name || 'dev' }}.dmg"
 
-          # Carpeta temporal para armar el contenido del DMG
           mkdir -p dmg_staging
           cp -R "$APP_PATH" dmg_staging/
-
-          # Symlink a Applications para arrastrar y soltar
           ln -s /Applications dmg_staging/Applications
 
           hdiutil create \
