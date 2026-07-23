@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-macos:
-    runs-on: macos-13   # Runner Intel x86_64 — compatible con todos los Macs del equipo
+    runs-on: macos-14   # Runner Apple Silicon — produce x86_64 via PyInstaller target-arch
     timeout-minutes: 40
 
     steps:
@@ -44,7 +44,8 @@ jobs:
             --add-data "assets:assets" \
             --add-data "vistas:vistas" \
             --add-data "core:core" \
-            --add-data "utils:utils"
+            --add-data "utils:utils" \
+            --target-arch x86_64
 
       - name: Create DMG
         run: |
