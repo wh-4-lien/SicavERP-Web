@@ -543,10 +543,30 @@ def main(page: ft.Page):
 
     iniciar_login()
 
+    def _on_disconnect(e):
+        import threading, os, signal
+        def _apagar():
+            import time; time.sleep(1)
+            os.kill(os.getpid(), signal.SIGTERM)
+        threading.Thread(target=_apagar, daemon=True).start()
+
+    page.on_disconnect = _on_disconnect
+
 if __name__ == "__main__":
     import sys as _sys, os as _os
     _assets = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "assets")
-    _port = int(_os.environ.get("PORT", 8080))
+    import socket as _socket
+    def _puerto_libre(preferido=8080):
+        with _socket.socket() as s:
+            try:
+                s.bind(("", preferido))
+                return preferido
+            except OSError:
+                with _socket.socket() as s2:
+                    s2.bind(("", 0))
+                    return s2.getsockname()[1]
+
+    _port = _puerto_libre(int(_os.environ.get("PORT", 8080)))
 
     # Siempre abrir en navegador (Chrome/Firefox)
     ft.app(target=main, assets_dir=_assets, view=ft.AppView.WEB_BROWSER, port=_port)
