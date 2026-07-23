@@ -561,7 +561,7 @@ class VistaGestionFurgones(ft.Container):
 
     def importar_stock_furgo(self, furgon_id, furgon_nombre):
         def _abrir(_=None):
-            def _on_result(e: ft.FilePickerResultEvent):
+            def _on_result(e):
                 if not e.files or not e.files[0].path:
                     return
                 ruta = e.files[0].path
@@ -860,7 +860,7 @@ class VistaGestionFurgones(ft.Container):
 
     def hacer_importar_herramientas(self, fid, fname):
         def _abrir(_=None):
-            def _on_result(e: ft.FilePickerResultEvent):
+            def _on_result(e):
                 if not e.files or not e.files[0].path:
                     return
                 ruta = e.files[0].path

@@ -256,7 +256,7 @@ class VistaUsuarios(ft.Container):
             except RuntimeError:
                 pass
 
-    def _on_foto_result(self, e: ft.FilePickerResultEvent):
+    def _on_foto_result(self, e):
         if e.files and e.files[0].path:
             self.procesar_foto(e.files[0].path)
 
@@ -283,7 +283,7 @@ class VistaUsuarios(ft.Container):
         except Exception as ex:
             self.mostrar_snack(f"❌ Error al subir foto: {ex}", "error")
 
-    def _on_foto_edit_result(self, e: ft.FilePickerResultEvent):
+    def _on_foto_edit_result(self, e):
         if e.files and e.files[0].path:
             self.procesar_foto_edicion(e.files[0].path)
 

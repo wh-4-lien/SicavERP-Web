@@ -145,7 +145,7 @@ class VistaImportar(ft.Container):
                 self.mostrar_snack(f"❌ Error cargando bodegas: {e}", "error")
         hilo(_run)
 
-    def _on_archivo_result(self, e: ft.FilePickerResultEvent):
+    def _on_archivo_result(self, e):
         if e.files:
             ruta = e.files[0].path
             if ruta:

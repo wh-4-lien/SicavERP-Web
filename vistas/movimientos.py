@@ -416,7 +416,7 @@ class VistaMovimientos(ft.Container):
                 self.mostrar_snack(f"❌ Error al crear plantilla: {ex}", "red700")
         hilo(_run)
 
-    def _on_masivo_result(self, e: ft.FilePickerResultEvent):
+    def _on_masivo_result(self, e):
         import os
         if e.files and e.files[0].path:
             ruta = e.files[0].path
