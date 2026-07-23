@@ -6,3 +6,6 @@ __pycache__/
 core/secrets.py
 assets/_informe_*.png
 assets/usr_*.png
+dist/
+*.dmg
+*.spec
