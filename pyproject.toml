@@ -4,6 +4,7 @@ org = "com.sicav"
 [tool.flet.app]
 name = "SicavERP"
 product_name = "SicavERP"
+icon = "assets/sicav.png"
 exclude = ["build", ".git", ".claude", "__pycache__", "*.pyc", "render.yaml", "pyproject.toml"]
 
 [tool.flet.macos]
