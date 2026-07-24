@@ -88,38 +88,16 @@ PyInstaller.__main__.run(pyi_args)
 shutil.rmtree(temp_dir, ignore_errors=True)
 print("Build complete. Check dist/SicavERP.app")
 
-# Step 5: Create DMG with installer script
+# Step 5: Create DMG
 from version import VERSION
-dmg_staging = PROJECT_DIR / "dist" / "dmg_staging"
-shutil.rmtree(dmg_staging, ignore_errors=True)
-dmg_staging.mkdir(parents=True)
-
-shutil.copytree(PROJECT_DIR / "dist" / "SicavERP.app", dmg_staging / "SicavERP.app", symlinks=True)
-
-installer_script = dmg_staging / "Instalar SicavERP.command"
-installer_script.write_text("""\
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_SRC="$SCRIPT_DIR/SicavERP.app"
-DEST="$HOME/Applications"
-mkdir -p "$DEST"
-echo "Copiando SicavERP a $DEST ..."
-cp -R "$APP_SRC" "$DEST/"
-xattr -rd com.apple.quarantine "$DEST/SicavERP.app" 2>/dev/null
-echo "Instalado. Abriendo SicavERP..."
-open "$DEST/SicavERP.app"
-""")
-installer_script.chmod(0o755)
-
 dmg_path = PROJECT_DIR / "dist" / f"SicavERP-v{VERSION}.dmg"
 dmg_path.unlink(missing_ok=True)
 result = subprocess.run([
     "hdiutil", "create",
     "-volname", "SicavERP",
-    "-srcfolder", str(dmg_staging),
+    "-srcfolder", str(PROJECT_DIR / "dist" / "SicavERP.app"),
     "-ov", "-format", "UDZO",
     str(dmg_path),
 ], capture_output=True, text=True)
 print(result.stdout, result.stderr)
-shutil.rmtree(dmg_staging)
 print(f"DMG listo: {dmg_path}")
